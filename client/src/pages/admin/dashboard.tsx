@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowDown, ArrowUp, BarChart3, Download, FileText, PersonStanding, Users, UserRound, UsersRound, CircleAlert } from "lucide-react";
 import { useState } from "react";
+import * as XLSX from 'xlsx';
 
 type DashboardStats = {
   totalStudents: number;
