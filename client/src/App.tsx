@@ -1,0 +1,50 @@
+import { Switch, Route } from "wouter";
+import { ProtectedRoute } from "./lib/protected-route";
+import AuthPage from "@/pages/auth-page";
+import NotFound from "@/pages/not-found";
+
+// Admin pages
+import AdminDashboard from "@/pages/admin/dashboard";
+import AdminStudents from "@/pages/admin/students";
+import AdminMentors from "@/pages/admin/mentors";
+import AdminErrorLogs from "@/pages/admin/error-logs";
+
+// Mentor pages
+import MentorDashboard from "@/pages/mentor/dashboard";
+import MentorMentees from "@/pages/mentor/mentees";
+import MentorAtRisk from "@/pages/mentor/at-risk";
+
+// Mentee pages
+import MenteeDashboard from "@/pages/mentee/dashboard";
+
+function Router() {
+  return (
+    <Switch>
+      {/* Auth Route */}
+      <Route path="/auth" component={AuthPage} />
+      
+      {/* Admin Routes */}
+      <ProtectedRoute path="/" component={AdminDashboard} />
+      <ProtectedRoute path="/admin/students" component={AdminStudents} />
+      <ProtectedRoute path="/admin/mentors" component={AdminMentors} />
+      <ProtectedRoute path="/admin/error-logs" component={AdminErrorLogs} />
+      
+      {/* Mentor Routes */}
+      <ProtectedRoute path="/mentor" component={MentorDashboard} />
+      <ProtectedRoute path="/mentor/mentees" component={MentorMentees} />
+      <ProtectedRoute path="/mentor/at-risk" component={MentorAtRisk} />
+      
+      {/* Mentee Routes */}
+      <ProtectedRoute path="/mentee" component={MenteeDashboard} />
+      
+      {/* Fallback to 404 */}
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return <Router />;
+}
+
+export default App;
