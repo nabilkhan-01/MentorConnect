@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
 import { UserRole } from "@shared/schema";

@@ -4,6 +4,7 @@ import Sidebar from "./sidebar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { UserRole } from "@shared/schema";
+import { Menu, X } from "lucide-react";
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
