@@ -2,6 +2,8 @@ import { Switch, Route } from "wouter";
 import { ProtectedRoute } from "./lib/protected-route";
 import AuthPage from "@/pages/auth-page";
 import NotFound from "@/pages/not-found";
+import ProfilePage from "@/pages/profile";
+import SettingsPage from "@/pages/settings";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -36,6 +38,10 @@ function Router() {
       
       {/* Mentee Routes */}
       <ProtectedRoute path="/mentee" component={MenteeDashboard} />
+      
+      {/* Common User Routes */}
+      <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/settings" component={SettingsPage} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />

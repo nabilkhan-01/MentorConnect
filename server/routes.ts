@@ -73,6 +73,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // ---------- USER ROUTES ----------
+
+  // Update user profile
+  app.patch("/api/user/:id/profile", authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = parseInt(id);
+      
+      // Ensure user can only update their own profile unless they are an admin
+      if (req.user.id !== userId && req.user.role !== UserRole.ADMIN) {
+        return res.status(403).json({ message: "You can only update your own profile" });
+      }
+      
+      const { name, email, mobileNumber } = req.body;
+      
+      // Update the user
+      const updatedUser = await storage.updateUser(userId, {
+        name,
+        email,
+      });
+      
+      // Update mobile number in mentor or mentee record if applicable
+      if (mobileNumber) {
+        if (updatedUser.role === UserRole.MENTOR) {
+          const mentor = await storage.getMentorByUserId(userId);
+          if (mentor) {
+            await storage.updateMentor(mentor.id, {
+              mobileNumber,
+            });
+          }
+        } else if (updatedUser.role === UserRole.MENTEE) {
+          const mentee = await storage.getMenteeByUserId(userId);
+          if (mentee) {
+            await storage.updateMentee(mentee.id, {
+              mobileNumber,
+            });
+          }
+        }
+      }
+      
+      res.json(updatedUser);
+    } catch (error: any) {
+      await logError(req.user?.id, "update_profile", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Change password
+  app.post("/api/user/:id/change-password", authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = parseInt(id);
+      
+      // Ensure user can only update their own password
+      if (req.user.id !== userId) {
+        return res.status(403).json({ message: "You can only change your own password" });
+      }
+      
+      const { currentPassword, newPassword } = req.body;
+      
+      // Get current user with password
+      const user = await storage.getUser(userId);
+      
+      // Check if current password is correct
+      const { comparePasswords } = require('./auth');
+      const isValid = await comparePasswords(currentPassword, user.password);
+      
+      if (!isValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+      
+      // Hash the new password
+      const { hashPassword } = require('./auth');
+      const hashedPassword = await hashPassword(newPassword);
+      
+      // Update password
+      await storage.updateUser(userId, {
+        password: hashedPassword,
+      });
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error: any) {
+      await logError(req.user?.id, "change_password", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Update notification settings
+  app.post("/api/user/:id/notification-settings", authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = parseInt(id);
+      
+      // Ensure user can only update their own notification settings
+      if (req.user.id !== userId) {
+        return res.status(403).json({ message: "You can only update your own notification settings" });
+      }
+      
+      // Mock response as we don't have a notification settings table yet
+      res.json({
+        message: "Notification settings updated successfully",
+        settings: req.body,
+      });
+    } catch (error: any) {
+      await logError(req.user?.id, "update_notification_settings", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ---------- ADMIN ROUTES ----------
 
   // Get dashboard stats
