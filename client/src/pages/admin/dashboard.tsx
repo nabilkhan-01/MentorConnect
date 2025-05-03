@@ -79,11 +79,80 @@ export default function AdminDashboard() {
   };
 
   // Handle Export
-  const handleExport = () => {
-    toast({
-      title: "Export initiated",
-      description: "Preparing data export...",
-    });
+  const handleExport = async () => {
+    try {
+      toast({
+        title: "Export initiated",
+        description: "Preparing data export...",
+      });
+      
+      // Get the data to export
+      const [studentsRes, mentorsRes] = await Promise.all([
+        fetch('/api/admin/students', { credentials: 'include' }),
+        fetch('/api/mentors', { credentials: 'include' })
+      ]);
+      
+      if (!studentsRes.ok || !mentorsRes.ok) {
+        throw new Error('Failed to fetch data for export');
+      }
+      
+      const students = await studentsRes.json();
+      const mentors = await mentorsRes.json();
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      
+      // Add students worksheet
+      const studentsWS = XLSX.utils.json_to_sheet(students.map((student: any) => ({
+        USN: student.usn,
+        Name: student.name || '',
+        Email: student.email || '',
+        Semester: student.semester,
+        Section: student.section,
+        Mentor: student.mentorName || '',
+        'Mobile Number': student.mobileNumber || '',
+        'Parent Mobile': student.parentMobileNumber || '',
+        Attendance: student.attendance ? `${student.attendance.toFixed(1)}%` : 'N/A'
+      })));
+      XLSX.utils.book_append_sheet(workbook, studentsWS, "Students");
+      
+      // Add mentors worksheet
+      const mentorsWS = XLSX.utils.json_to_sheet(mentors.map((mentor: any) => ({
+        Name: mentor.name || '',
+        Email: mentor.email || '',
+        Department: mentor.department || '',
+        Specialization: mentor.specialization || '',
+        'Mobile Number': mentor.mobileNumber || '',
+        'Mentee Count': mentor.menteeCount || 0,
+        Status: mentor.isActive ? 'Active' : 'Inactive'
+      })));
+      XLSX.utils.book_append_sheet(workbook, mentorsWS, "Mentors");
+      
+      // Generate Excel file and trigger download
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `MentorConnect_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Export complete",
+        description: "Data has been exported successfully.",
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "Failed to export data.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -155,7 +224,7 @@ export default function AdminDashboard() {
           <Card>
             <div className="px-4 py-3 border-b border-neutral-100 flex justify-between items-center">
               <h2 className="font-semibold text-neutral-800">At-Risk Students</h2>
-              <Button variant="link" size="sm" className="text-primary">View All</Button>
+              <Button variant="link" size="sm" className="text-primary" onClick={() => window.location.href = "/admin/students"}>View All</Button>
             </div>
             <div className="overflow-x-auto">
               <Table>
@@ -247,7 +316,7 @@ export default function AdminDashboard() {
               </ul>
             </div>
             <div className="px-4 py-3 border-t border-neutral-100">
-              <Button variant="link" size="sm" className="text-primary p-0">View All Activities</Button>
+              <Button variant="link" size="sm" className="text-primary p-0" onClick={() => window.location.href = "/admin/error-logs"}>View All Activities</Button>
             </div>
           </Card>
         </div>
