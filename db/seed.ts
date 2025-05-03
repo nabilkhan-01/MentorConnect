@@ -46,14 +46,16 @@ async function seed() {
 
       for (const mentorData of mentors) {
         const username = mentorData.name.toLowerCase().replace(/\s+/g, ".");
-        const password = await hashPassword(username);
+        // Make sure we don't have double dots in the username
+        const cleanUsername = username.replace(/\.+/g, ".");
+        const password = await hashPassword(cleanUsername);
         
         const mentor = await db.insert(schema.users).values({
-          username,
+          username: cleanUsername,
           password,
           role: schema.UserRole.MENTOR,
           name: mentorData.name,
-          email: `${username}@college.edu`,
+          email: `${cleanUsername}@college.edu`,
         }).returning();
 
         await db.insert(schema.mentors).values({
