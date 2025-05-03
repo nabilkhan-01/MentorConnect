@@ -27,7 +27,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="bg-white elevated w-64 flex-shrink-0 hidden md:block h-full">
+    <aside className="bg-white elevated w-64 flex-shrink-0 h-full">
       <div className="h-full flex flex-col">
         <div className="p-4 border-b border-neutral-100">
           <div className="flex items-center">

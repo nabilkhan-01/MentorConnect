@@ -27,8 +27,10 @@ export function DashboardLayout({
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
-        <Sidebar />
+        {/* Sidebar - hidden on mobile unless toggled */}
+        <div className="hidden md:block">
+          <Sidebar />
+        </div>
         
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
@@ -45,15 +47,7 @@ export function DashboardLayout({
           </div>
         )}
         
-        {/* Mobile menu toggle button */}
-        <div className="md:hidden fixed bottom-4 right-4 z-10">
-          <button 
-            className="h-12 w-12 rounded-full bg-primary text-white shadow-lg flex items-center justify-center"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
+        {/* Mobile menu toggle button removed to avoid duplication with header menu */}
         
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-neutral-50 p-4 md:p-6">

@@ -67,7 +67,7 @@ export default function AuthPage() {
       {/* Right Side: Hero Image & Information */}
       <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center p-10">
         <div className="text-white max-w-lg">
-          <h2 className="text-4xl font-bold mb-6">Streamlined Mentor-Mentee Management</h2>
+          <h2 className="text-4xl font-bold mb-6">Mentor-Mentee Management</h2>
           <p className="text-lg mb-8">Connect, manage, and monitor the academic progress of students with our comprehensive platform designed specifically for educational institutions.</p>
           
           <div className="space-y-4">
