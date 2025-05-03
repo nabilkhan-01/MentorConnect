@@ -27,7 +27,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   
-  if (!user) return null;
+  if (!user) return <></>; // Return empty fragment instead of null
   
   const profileMutation = useMutation({
     mutationFn: async (data: ProfileFormValues) => {

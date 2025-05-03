@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { storage } from "./storage";
 import multer from "multer";
 import { eq, and, desc, lt, asc } from "drizzle-orm";
@@ -137,7 +137,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       
       // Check if current password is correct
-      const { comparePasswords } = require('./auth');
       const isValid = await comparePasswords(currentPassword, user.password);
       
       if (!isValid) {
@@ -145,7 +144,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Hash the new password
-      const { hashPassword } = require('./auth');
       const hashedPassword = await hashPassword(newPassword);
       
       // Update password

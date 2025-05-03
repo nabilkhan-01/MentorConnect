@@ -38,7 +38,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  if (!user) return null;
+  if (!user) return <></>; // Return empty fragment instead of null
   
   const passwordMutation = useMutation({
     mutationFn: async (data: PasswordFormValues) => {
