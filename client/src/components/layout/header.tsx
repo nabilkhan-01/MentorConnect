@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Bell, ChevronDown, Menu, X } from "lucide-react";
 
-export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
+export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => void, sidebarOpen?: boolean }) {
   const { user, logoutMutation } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -27,7 +27,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
               className="md:hidden p-2 rounded-md text-gray-500 hover:text-primary mr-2"
               onClick={onMenuToggle}
             >
-              <Menu size={24} />
+              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
             <div className="flex-shrink-0">
               <Link href="/">

@@ -24,7 +24,7 @@ export function DashboardLayout({
 
   return (
     <div className="h-screen flex flex-col">
-      <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
       
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - hidden on mobile unless toggled */}
@@ -39,7 +39,7 @@ export function DashboardLayout({
             onClick={() => setSidebarOpen(false)}
           >
             <div 
-              className="absolute right-0 top-0 h-full w-64 bg-white"
+              className="absolute left-0 top-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out"
               onClick={(e) => e.stopPropagation()}
             >
               <Sidebar />
