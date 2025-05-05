@@ -57,7 +57,7 @@ export default function AcademicProgressPage() {
 
   // Get unique semesters
   const uniqueSemesters = academicRecords 
-    ? [...new Set(academicRecords.map(record => record.semester))].sort((a, b) => a - b)
+    ? Array.from(new Set(academicRecords.map(record => record.semester))).sort((a, b) => a - b)
     : [];
 
   // Calculate metrics

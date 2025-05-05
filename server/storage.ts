@@ -80,6 +80,15 @@ export interface IStorage {
   getAverageAttendanceByMentor: (mentorId: number) => Promise<number>;
   getMenteeSemesterDistribution: (mentorId: number) => Promise<Record<number, number>>;
   
+  // Self-assessment operations
+  getSelfAssessmentsByMentee: (menteeId: number) => Promise<schema.SelfAssessment[]>;
+  createSelfAssessment: (assessment: Omit<schema.InsertSelfAssessment, "id">) => Promise<schema.SelfAssessment>;
+  
+  // Message operations
+  getMessagesByUser: (userId: number) => Promise<(schema.Message & { sender: schema.User })[]>;
+  createMessage: (message: Omit<schema.InsertMessage, "id">) => Promise<schema.Message>;
+  markMessageAsRead: (messageId: number) => Promise<void>;
+  
   // Session store
   sessionStore: session.SessionStore;
 }

@@ -221,6 +221,28 @@ export const selectAcademicRecordSchema = createSelectSchema(academicRecords);
 export const insertErrorLogSchema = createInsertSchema(errorLogs);
 export const selectErrorLogSchema = createSelectSchema(errorLogs);
 
+// Self-Assessment and Message schemas
+export const insertSelfAssessmentSchema = createInsertSchema(selfAssessments, {
+  academicGoals: (schema) => schema.min(10, "Academic goals must be at least 10 characters"),
+  careerAspirations: (schema) => schema.min(10, "Career aspirations must be at least 10 characters"),
+  strengths: (schema) => schema.min(5, "Strengths must be at least 5 characters"),
+  areasToImprove: (schema) => schema.min(5, "Areas to improve must be at least 5 characters"),
+  studyHoursPerDay: (schema) => schema.gte(0, "Study hours cannot be negative").lte(24, "Study hours cannot exceed 24"),
+  stressLevel: (schema) => schema.gte(1, "Stress level must be at least 1").lte(5, "Stress level cannot exceed 5"),
+  academicConfidence: (schema) => schema.refine(
+    (val) => ["very_low", "low", "moderate", "high", "very_high"].includes(val),
+    { message: "Invalid academic confidence level" }
+  ),
+  challenges: (schema) => schema.min(5, "Challenges must be at least 5 characters"),
+  supportNeeded: (schema) => schema.min(5, "Support needed must be at least 5 characters"),
+});
+export const selectSelfAssessmentSchema = createSelectSchema(selfAssessments);
+
+export const insertMessageSchema = createInsertSchema(messages, {
+  content: (schema) => schema.min(1, "Message cannot be empty").max(1000, "Message is too long"),
+});
+export const selectMessageSchema = createSelectSchema(messages);
+
 // Type exports for use in the application
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = z.infer<typeof selectUserSchema>;
@@ -239,3 +261,9 @@ export type AcademicRecord = z.infer<typeof selectAcademicRecordSchema>;
 
 export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
 export type ErrorLog = z.infer<typeof selectErrorLogSchema>;
+
+export type InsertSelfAssessment = z.infer<typeof insertSelfAssessmentSchema>;
+export type SelfAssessment = z.infer<typeof selectSelfAssessmentSchema>;
+
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = z.infer<typeof selectMessageSchema>;
