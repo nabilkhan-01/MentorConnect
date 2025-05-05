@@ -139,6 +139,52 @@ export const errorLogsRelations = relations(errorLogs, ({ one }) => ({
   }),
 }));
 
+// Self-assessment table
+export const selfAssessments = pgTable("self_assessments", {
+  id: serial("id").primaryKey(),
+  menteeId: integer("mentee_id").references(() => mentees.id).notNull(),
+  academicGoals: text("academic_goals").notNull(),
+  careerAspirations: text("career_aspirations").notNull(),
+  strengths: text("strengths").notNull(),
+  areasToImprove: text("areas_to_improve").notNull(),
+  studyHoursPerDay: real("study_hours_per_day").notNull(),
+  stressLevel: integer("stress_level").notNull(),
+  academicConfidence: text("academic_confidence").notNull(),
+  challenges: text("challenges").notNull(),
+  supportNeeded: text("support_needed").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Messages table
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").references(() => users.id).notNull(),
+  receiverId: integer("receiver_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const selfAssessmentsRelations = relations(selfAssessments, ({ one }) => ({
+  mentee: one(mentees, {
+    fields: [selfAssessments.menteeId],
+    references: [mentees.id],
+  }),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  sender: one(users, {
+    fields: [messages.senderId],
+    references: [users.id],
+  }),
+  receiver: one(users, {
+    fields: [messages.receiverId],
+    references: [users.id],
+  }),
+}));
+
 // Schemas for validation
 export const insertUserSchema = createInsertSchema(users, {
   username: (schema) => schema.min(3, "Username must be at least 3 characters"),
