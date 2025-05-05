@@ -11,7 +11,11 @@ import {
   academicRecords,
   errorLogs,
   subjects,
+  selfAssessments,
+  messages,
   UserRole,
+  insertSelfAssessmentSchema,
+  insertMessageSchema,
 } from "@shared/schema";
 import * as XLSX from 'xlsx';
 
@@ -939,6 +943,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(subjectsList);
     } catch (error: any) {
       await logError(req.user?.id, "get_subjects", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get mentee's self-assessments
+  app.get("/api/mentee/self-assessments", authenticateUser, requireMentee, async (req, res) => {
+    try {
+      const menteeRecord = await storage.getMenteeByUserId(req.user.id);
+      if (!menteeRecord) {
+        return res.status(404).json({ message: "Mentee profile not found" });
+      }
+
+      const assessments = await storage.getSelfAssessmentsByMentee(menteeRecord.id);
+      res.json(assessments);
+    } catch (error: any) {
+      await logError(req.user?.id, "get_mentee_self_assessments", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create mentee's self-assessment
+  app.post("/api/mentee/self-assessments", authenticateUser, requireMentee, async (req, res) => {
+    try {
+      const menteeRecord = await storage.getMenteeByUserId(req.user.id);
+      if (!menteeRecord) {
+        return res.status(404).json({ message: "Mentee profile not found" });
+      }
+
+      // Validate request body
+      const { 
+        academicGoals, careerAspirations, strengths, areasToImprove, 
+        studyHoursPerDay, stressLevel, academicConfidence, challenges, supportNeeded 
+      } = schema.insertSelfAssessmentSchema.parse({
+        ...req.body,
+        menteeId: menteeRecord.id,
+      });
+
+      // Create self-assessment
+      const assessment = await storage.createSelfAssessment({
+        menteeId: menteeRecord.id,
+        academicGoals,
+        careerAspirations,
+        strengths,
+        areasToImprove,
+        studyHoursPerDay,
+        stressLevel,
+        academicConfidence,
+        challenges,
+        supportNeeded,
+      });
+
+      res.status(201).json(assessment);
+    } catch (error: any) {
+      await logError(req.user?.id, "create_mentee_self_assessment", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get messages for the current user
+  app.get("/api/messages", authenticateUser, async (req, res) => {
+    try {
+      const messages = await storage.getMessagesByUser(req.user.id);
+      res.json(messages);
+    } catch (error: any) {
+      await logError(req.user?.id, "get_messages", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Send a message
+  app.post("/api/messages", authenticateUser, async (req, res) => {
+    try {
+      // Validate request body
+      const { receiverId, content } = schema.insertMessageSchema.parse({
+        ...req.body,
+        senderId: req.user.id,
+      });
+
+      // Verify receiver exists
+      const receiver = await storage.getUser(receiverId);
+      if (!receiver) {
+        return res.status(404).json({ message: "Receiver not found" });
+      }
+
+      // Create message
+      const message = await storage.createMessage({
+        senderId: req.user.id,
+        receiverId,
+        content,
+        isRead: false,
+      });
+
+      res.status(201).json(message);
+    } catch (error: any) {
+      await logError(req.user?.id, "send_message", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Mark message as read
+  app.patch("/api/messages/:id/read", authenticateUser, async (req, res) => {
+    try {
+      const messageId = parseInt(req.params.id);
+      await storage.markMessageAsRead(messageId);
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      await logError(req.user?.id, "mark_message_read", error.message, error.stack);
       res.status(500).json({ message: error.message });
     }
   });

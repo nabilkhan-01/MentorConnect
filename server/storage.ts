@@ -1,6 +1,6 @@
 import { db } from "@db";
 import * as schema from "@shared/schema";
-import { eq, and, asc, desc, lt, gt, sql, count, avg } from "drizzle-orm";
+import { eq, and, or, asc, desc, lt, gt, sql, count, avg } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 import { pool } from "@db";
@@ -638,6 +638,50 @@ class DatabaseStorage implements IStorage {
     }
     
     return distribution;
+  }
+
+  // Self-assessment operations
+  async getSelfAssessmentsByMentee(menteeId: number): Promise<schema.SelfAssessment[]> {
+    return await db.query.selfAssessments.findMany({
+      where: eq(schema.selfAssessments.menteeId, menteeId),
+      orderBy: [desc(schema.selfAssessments.createdAt)],
+    });
+  }
+
+  async createSelfAssessment(assessment: Omit<schema.InsertSelfAssessment, "id">): Promise<schema.SelfAssessment> {
+    const [newAssessment] = await db.insert(schema.selfAssessments).values(assessment).returning();
+    return newAssessment;
+  }
+
+  // Message operations
+  async getMessagesByUser(userId: number): Promise<(schema.Message & { sender: schema.User })[]> {
+    const messages = await db.query.messages.findMany({
+      where: or(
+        eq(schema.messages.senderId, userId),
+        eq(schema.messages.receiverId, userId)
+      ),
+      with: {
+        sender: true,
+      },
+      orderBy: [asc(schema.messages.createdAt)],
+    });
+
+    return messages;
+  }
+
+  async createMessage(message: Omit<schema.InsertMessage, "id">): Promise<schema.Message> {
+    const [newMessage] = await db.insert(schema.messages).values(message).returning();
+    return newMessage;
+  }
+
+  async markMessageAsRead(messageId: number): Promise<void> {
+    await db
+      .update(schema.messages)
+      .set({
+        isRead: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.messages.id, messageId));
   }
 }
 

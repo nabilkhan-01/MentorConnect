@@ -18,6 +18,9 @@ import MentorAtRisk from "@/pages/mentor/at-risk";
 
 // Mentee pages
 import MenteeDashboard from "@/pages/mentee/dashboard";
+import MenteeSelfAssessment from "@/pages/mentee/self-assessment";
+import MenteeMessages from "@/pages/mentee/messages";
+import AcademicProgressPage from "@/pages/mentee/academic-progress";
 
 function Router() {
   return (
@@ -38,6 +41,9 @@ function Router() {
       
       {/* Mentee Routes */}
       <ProtectedRoute path="/mentee" component={MenteeDashboard} />
+      <ProtectedRoute path="/mentee/self-assessment" component={MenteeSelfAssessment} />
+      <ProtectedRoute path="/mentee/messages" component={MenteeMessages} />
+      <ProtectedRoute path="/mentee/academic-progress" component={AcademicProgressPage} />
       
       {/* Common User Routes */}
       <ProtectedRoute path="/profile" component={ProfilePage} />
