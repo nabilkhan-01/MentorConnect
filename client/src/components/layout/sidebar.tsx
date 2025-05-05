@@ -95,11 +95,14 @@ export function Sidebar() {
                 <NavItem href="/mentee/profile" icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>} active={isActive("/mentee/profile")}>
                   My Profile
                 </NavItem>
-                <NavItem href="/mentee/academics" icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>} active={isActive("/mentee/academics")}>
-                  Academic Records
+                <NavItem href="/mentee/academic-progress" icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>} active={isActive("/mentee/academic-progress")}>
+                  Academic Progress
                 </NavItem>
-                <NavItem href="/mentee/attendance" icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>} active={isActive("/mentee/attendance")}>
-                  Attendance
+                <NavItem href="/mentee/self-assessment" icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-.5a.5.5 0 0 1-.5-.5V2a2 2 0 1 0-4 0v.5a.5.5 0 0 1-.5.5z"/><path d="M8 3a2.5 2.5 0 0 1 4 0"/><path d="M9.5 3h.5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M15 12v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-7"/><rect x="13" y="2" width="6" height="10" rx="2"/></svg>} active={isActive("/mentee/self-assessment")}>
+                  Self Assessment
+                </NavItem>
+                <NavItem href="/mentee/messages" icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-5 w-5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>} active={isActive("/mentee/messages")}>
+                  Messages
                 </NavItem>
               </>
             )}
