@@ -1,323 +1,330 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getInitials } from "@/lib/utils";
-import { Send, Loader2, AlertCircle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Send, User, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const messageSchema = z.object({
+  receiverId: z.number(),
+  content: z.string().min(1, "Message cannot be empty").max(1000, "Message is too long"),
+});
+
+type MessageFormValues = z.infer<typeof messageSchema>;
 type Message = {
   id: number;
   senderId: number;
   receiverId: number;
   content: string;
+  isRead: boolean;
   createdAt: string;
-  sender: {
+  updatedAt: string;
+  sender?: {
     id: number;
+    name: string;
     username: string;
-    name?: string;
-    role: string;
   };
 };
-
-type MenteeProfile = {
-  mentee: {
-    id: number;
-    usn: string;
-    semester: number;
-    section: string;
-    mobileNumber?: string;
-    parentMobileNumber?: string;
-    name?: string;
-    email?: string;
-  };
-  mentor: {
-    id: number;
-    userId: number;
-    department?: string;
-    specialization?: string;
-    mobileNumber?: string;
-    name?: string;
-    email?: string;
-  } | null;
-};
-
-const messageSchema = z.object({
-  content: z.string().min(1, "Message cannot be empty").max(1000, "Message is too long"),
-});
-
-type MessageFormValues = z.infer<typeof messageSchema>;
 
 export default function MenteeMessages() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<MenteeProfile>({
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+
+  // Fetch mentor info to know who to send messages to
+  const { data: menteeData } = useQuery<any>({
     queryKey: ["/api/mentee/profile"],
+    enabled: !!user
   });
-  
-  const { data: messages, isLoading: isMessagesLoading } = useQuery<Message[]>({
+
+  // Fetch messages
+  const { data: messages, isLoading } = useQuery<Array<Message>>({
     queryKey: ["/api/messages"],
-    refetchInterval: 10000, // Refetch every 10 seconds
+    enabled: !!user,
+    refetchInterval: 10000, // Refresh every 10 seconds
+  });
+
+  // Send a new message
+  const sendMutation = useMutation({
+    mutationFn: async (data: MessageFormValues) => {
+      const response = await apiRequest("POST", "/api/messages", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      toast({
+        title: "Message sent",
+        description: "Your message has been sent successfully.",
+      });
+      form.reset({ receiverId: menteeData?.mentor?.userId, content: "" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error sending message",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mark message as read
+  const markAsReadMutation = useMutation({
+    mutationFn: async (messageId: number) => {
+      const response = await apiRequest("PATCH", `/api/messages/${messageId}/read`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+    },
+    onError: (error: Error) => {
+      console.error("Error marking message as read:", error);
+    },
   });
 
   const form = useForm<MessageFormValues>({
     resolver: zodResolver(messageSchema),
     defaultValues: {
+      receiverId: menteeData?.mentor?.userId || 0,
       content: "",
     },
   });
 
-  // Scroll to bottom of messages when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
-  // Send a new message
-  const sendMessageMutation = useMutation({
-    mutationFn: async (data: MessageFormValues) => {
-      if (!profileData?.mentor?.userId) {
-        throw new Error("No mentor assigned");
-      }
-      
-      const res = await apiRequest("POST", "/api/messages", {
-        receiverId: profileData.mentor.userId,
-        content: data.content,
-      });
-      return await res.json();
-    },
-    onSuccess: () => {
-      form.reset({ content: "" });
-      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
-      setIsSubmitting(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to send message",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsSubmitting(false);
-    },
-  });
-
   function onSubmit(data: MessageFormValues) {
-    setIsSubmitting(true);
-    sendMessageMutation.mutate(data);
+    sendMutation.mutate(data);
   }
 
-  // Format the timestamp
-  const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + 
-      date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  // Extract unique conversation partners
+  const conversationPartners = messages ? [...new Set(messages.map((m: Message) => 
+    m.senderId === user?.id ? m.receiverId : m.senderId
+  ))].map(partnerId => {
+    const message = messages.find((m: Message) => 
+      m.senderId === partnerId || m.receiverId === partnerId
+    );
+    return {
+      id: partnerId,
+      name: message?.sender?.name || "Unknown",
+      username: message?.sender?.username || "unknown",
+      lastMessage: messages
+        .filter((m: Message) => m.senderId === partnerId || m.receiverId === partnerId)
+        .sort((a: Message, b: Message) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0],
+      unreadCount: messages.filter((m: Message) => 
+        m.senderId === partnerId && !m.isRead
+      ).length,
+    };
+  }) : [];
+
+  const getMessagesWithPartner = (partnerId: number) => {
+    if (!messages) return [];
+    return messages
+      .filter((m: Message) => 
+        (m.senderId === user?.id && m.receiverId === partnerId) || 
+        (m.senderId === partnerId && m.receiverId === user?.id)
+      )
+      .sort((a: Message, b: Message) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
   };
 
-  // Group messages by date
-  const groupMessagesByDate = (messages: Message[]) => {
-    const groups: Record<string, Message[]> = {};
-    
-    messages.forEach(message => {
-      const date = new Date(message.createdAt).toLocaleDateString();
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(message);
-    });
-    
-    return Object.entries(groups).map(([date, messages]) => ({
-      date,
-      messages,
-    }));
+  const handleMessageClick = (message: Message) => {
+    setSelectedMessage(message);
+    if (!message.isRead && message.senderId !== user?.id) {
+      markAsReadMutation.mutate(message.id);
+    }
   };
 
-  const messageGroups = messages ? groupMessagesByDate(messages) : [];
+  const hasMentor = menteeData?.mentor?.userId;
 
   return (
-    <DashboardLayout 
-      pageTitle="Messages" 
-      pageDescription="Communicate with your mentor"
-    >
-      <div className="grid grid-cols-1 gap-6">
-        <Card className="min-h-[calc(100vh-12rem)]">
-          <CardHeader className="pb-3">
-            <CardTitle>Conversation with Your Mentor</CardTitle>
+    <div className="container py-8">
+      <h1 className="text-3xl font-bold mb-6">Messages</h1>
+
+      {!hasMentor ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No Mentor Assigned</CardTitle>
             <CardDescription>
-              Use this space to ask questions and receive guidance from your mentor
+              You don't have a mentor assigned yet. Once you are assigned a mentor, you will be able to send and receive messages here.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            {isProfileLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : !profileData?.mentor ? (
-              <div className="p-6">
-                <Alert variant="default">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>No mentor assigned</AlertTitle>
-                  <AlertDescription>
-                    You don't have a mentor assigned yet. Please contact your administrator.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            ) : (
-              <div className="flex flex-col h-[calc(100vh-18rem)]">
-                <div className="px-4 py-2 border-b bg-muted/50">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8 mr-2">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {getInitials(profileData.mentor.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">{profileData.mentor.name}</p>
-                      <p className="text-xs text-muted-foreground">{profileData.mentor.department}</p>
-                    </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Left sidebar - conversation list */}
+          <div className="md:col-span-1">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>Conversations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
-                </div>
-                
-                <ScrollArea className="flex-1 p-4">
-                  {isMessagesLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : messages?.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <div className="rounded-full bg-primary/10 p-3 mb-2">
-                        <Send className="h-6 w-6 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-medium">No messages yet</h3>
-                      <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-                        Send a message to your mentor to start a conversation
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {messageGroups.map((group, groupIndex) => (
-                        <div key={groupIndex} className="space-y-4">
-                          <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                              <span className="w-full border-t" />
+                ) : conversationPartners.length === 0 ? (
+                  <p className="text-muted-foreground">No conversations yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {conversationPartners.map(partner => (
+                      <div 
+                        key={partner.id}
+                        className={`p-3 rounded-md hover:bg-muted cursor-pointer transition-colors ${
+                          selectedMessage && (selectedMessage.senderId === partner.id || selectedMessage.receiverId === partner.id) 
+                            ? 'bg-muted' 
+                            : ''
+                        }`}
+                        onClick={() => {
+                          const partnerMessages = getMessagesWithPartner(partner.id);
+                          if (partnerMessages.length > 0) {
+                            handleMessageClick(partnerMessages[partnerMessages.length - 1]);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                            <User className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center">
+                              <p className="font-medium truncate">{partner.name}</p>
+                              {partner.unreadCount > 0 && (
+                                <span className="inline-flex items-center rounded-full bg-primary px-2 py-1 text-xs font-medium text-white">
+                                  {partner.unreadCount}
+                                </span>
+                              )}
                             </div>
-                            <div className="relative flex justify-center">
-                              <span className="bg-background px-2 text-xs text-muted-foreground">
-                                {new Date(group.date).toLocaleDateString([], { 
-                                  weekday: 'long', 
-                                  year: 'numeric', 
-                                  month: 'long', 
-                                  day: 'numeric' 
+                            <p className="text-sm text-muted-foreground truncate">
+                              {partner.lastMessage ? 
+                                (partner.lastMessage.senderId === user?.id ? 'You: ' : '') + partner.lastMessage.content : 
+                                'No messages yet'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right side - message content */}
+          <div className="md:col-span-2">
+            <Card className="h-full flex flex-col">
+              <CardHeader>
+                <CardTitle>
+                  {selectedMessage ? 
+                    (selectedMessage.senderId === user?.id ? 
+                      `To: ${menteeData?.mentor?.name || 'Your Mentor'}` : 
+                      `From: ${selectedMessage.sender?.name || 'Your Mentor'}`) : 
+                    "Select a conversation"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto">
+                {isLoading ? (
+                  <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : !selectedMessage ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Select a conversation to view messages</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {getMessagesWithPartner(selectedMessage.senderId === user?.id ? 
+                      selectedMessage.receiverId : selectedMessage.senderId)
+                      .map((message: Message) => (
+                        <div 
+                          key={message.id} 
+                          className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div 
+                            className={`max-w-[80%] p-3 rounded-lg ${
+                              message.senderId === user?.id ? 
+                                'bg-primary text-primary-foreground' : 
+                                'bg-muted'
+                            }`}
+                          >
+                            <p>{message.content}</p>
+                            <div className="flex items-center justify-end mt-1 text-xs opacity-70">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>
+                                {new Date(message.createdAt).toLocaleTimeString(undefined, {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
                                 })}
                               </span>
                             </div>
                           </div>
-                          
-                          {group.messages.map((message) => {
-                            const isSentByMe = message.sender.id === user?.id;
-                            
-                            return (
-                              <div 
-                                key={message.id} 
-                                className={`flex ${isSentByMe ? 'justify-end' : 'justify-start'}`}
-                              >
-                                <div className={`flex max-w-[80%] ${isSentByMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                  {!isSentByMe && (
-                                    <Avatar className="h-8 w-8 mr-2">
-                                      <AvatarFallback className="bg-primary text-primary-foreground">
-                                        {getInitials(message.sender.name)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  )}
-                                  <div 
-                                    className={`px-4 py-2 rounded-lg ${isSentByMe 
-                                      ? 'bg-primary text-primary-foreground ml-2' 
-                                      : 'bg-muted'}`}
-                                  >
-                                    <div className="flex flex-col">
-                                      <div className="whitespace-pre-wrap break-words">{message.content}</div>
-                                      <span className={`text-xs mt-1 ${isSentByMe 
-                                        ? 'text-primary-foreground/70' 
-                                        : 'text-muted-foreground'}`}>
-                                        {formatMessageTime(message.createdAt)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
                         </div>
                       ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
-                </ScrollArea>
-                
-                <div className="p-4 border-t">
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex space-x-2">
-                      <FormField
-                        control={form.control}
-                        name="content"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Type a message..." 
-                                className="min-h-[60px] resize-none" 
-                                {...field} 
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    if (field.value.trim() !== '') {
-                                      form.handleSubmit(onSubmit)();
-                                    }
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button 
-                        type="submit" 
-                        className="self-end"
-                        disabled={isSubmitting || !profileData?.mentor}
-                      >
-                        {isSubmitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                        <span className="sr-only">Send message</span>
-                      </Button>
-                    </form>
-                  </Form>
-                </div>
+                  </div>
+                )}
+              </CardContent>
+
+              <div className="p-4 border-t">
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="flex space-x-2">
+                    <FormField
+                      control={form.control}
+                      name="receiverId"
+                      render={({ field }) => (
+                        <FormItem className="hidden">
+                          <FormControl>
+                            <Input 
+                              type="hidden" 
+                              {...field}
+                              value={menteeData?.mentor?.userId || 0}
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="content"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <Input 
+                              placeholder="Type your message here..."
+                              {...field}
+                              disabled={!hasMentor || sendMutation.isPending}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={!hasMentor || sendMutation.isPending}
+                    >
+                      {sendMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">Send</span>
+                    </Button>
+                  </form>
+                </Form>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </DashboardLayout>
+            </Card>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
