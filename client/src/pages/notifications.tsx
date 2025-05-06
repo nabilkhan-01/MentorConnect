@@ -53,7 +53,7 @@ export default function NotificationsPage() {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       // Since we don't have a batch endpoint, we'll use Promise.all to make multiple requests
-      const unreadNotifications = notifications.filter(n => n && !n.is_read);
+      const unreadNotifications = notifications.filter(n => n && !n.isRead);
       await Promise.all(
         unreadNotifications.map(notification => 
           apiRequest("POST", `/api/notifications/${notification.id}/read`, {})
@@ -89,11 +89,11 @@ export default function NotificationsPage() {
 
   // Filter notifications based on the showUnreadOnly toggle
   const filteredNotifications = showUnreadOnly 
-    ? notifications.filter(notification => notification && !notification.is_read)
+    ? notifications.filter(notification => notification && !notification.isRead)
     : notifications;
 
   // Count unread notifications
-  const unreadCount = notifications.filter(notification => notification && !notification.is_read).length;
+  const unreadCount = notifications.filter(notification => notification && !notification.isRead).length;
 
   if (!user) return null;
 
@@ -156,30 +156,30 @@ export default function NotificationsPage() {
               {filteredNotifications.map(notification => (
                 <div
                   key={notification.id}
-                  className={`p-4 rounded-md border ${notification.is_urgent ? 'border-l-4 border-l-accent' : ''} ${
-                    notification.is_read ? 'bg-neutral-50' : 'bg-white'
+                  className={`p-4 rounded-md border ${notification.isUrgent ? 'border-l-4 border-l-accent' : ''} ${
+                    notification.isRead ? 'bg-neutral-50' : 'bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium">{notification.message}</p>
-                        {notification.is_urgent && (
+                        {notification.isUrgent && (
                           <Badge variant="destructive" className="text-xs">Urgent</Badge>
                         )}
-                        {!notification.is_read && (
+                        {!notification.isRead && (
                           <Badge variant="secondary" className="text-xs">New</Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(notification.created_at).toLocaleString(undefined, {
+                        {new Date(notification.createdAt).toLocaleString(undefined, {
                           dateStyle: 'medium',
                           timeStyle: 'short'
                         })}
                       </p>
                     </div>
                     
-                    {!notification.is_read && (
+                    {!notification.isRead && (
                       <Button
                         variant="ghost"
                         size="sm"
