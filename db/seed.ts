@@ -162,6 +162,56 @@ async function seed() {
       }
     }
 
+    // Create some notifications
+    const notificationsExist = await db.query.notifications.findFirst();
+    
+    if (!notificationsExist) {
+      console.log("Creating initial notifications...");
+      
+      const notificationsData = [
+        {
+          message: "Welcome to the Mentor-Mentee Portal",
+          isRead: false,
+          isUrgent: false,
+          targetRoles: ["admin", "mentor", "mentee"],
+          createdAt: new Date()
+        },
+        {
+          message: "5 students have attendance below 85%",
+          isRead: false,
+          isUrgent: true,
+          targetRoles: ["admin", "mentor"],
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+        },
+        {
+          message: "New student data uploaded successfully",
+          isRead: false,
+          isUrgent: false,
+          targetRoles: ["admin"],
+          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000) // 1 day ago
+        },
+        {
+          message: "Your mentor has scheduled a meeting for Friday",
+          isRead: false,
+          isUrgent: true,
+          targetRoles: ["mentee"],
+          createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000) // 3 hours ago
+        },
+        {
+          message: "Don't forget to update your academic progress this week",
+          isRead: false,
+          isUrgent: false,
+          targetRoles: ["mentee"],
+          createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000) // 12 hours ago
+        }
+      ];
+      
+      for (const notification of notificationsData) {
+        await db.insert(schema.notifications).values(notification);
+        console.log(`Created notification: ${notification.message}`);
+      }
+    }
+    
     console.log("Seed completed successfully");
   }
   catch (error) {

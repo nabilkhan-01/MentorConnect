@@ -185,6 +185,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+  
+  // Get notifications for the current user
+  app.get("/api/notifications", authenticateUser, async (req, res) => {
+    try {
+      // Get user role
+      const userRole = req.user.role;
+      
+      // Get notifications from the database
+      const { db } = await import("@db");
+      const allNotifications = await db.query.notifications.findMany({
+        orderBy: [desc(notifications.createdAt)],
+      });
+      
+      // Filter notifications by user role
+      // Note: We're doing this in memory since JSON column filtering
+      // is complex in SQL and varies by database platform
+      const userNotifications = allNotifications.filter(notification => {
+        if (!notification.targetRoles) return false;
+        
+        // Check if the notification's targetRoles array includes the user's role
+        // or includes 'all' which means it's for everyone
+        try {
+          const roles = notification.targetRoles as string[];
+          return roles.includes(userRole) || roles.includes('all');
+        } catch (err) {
+          // If parsing fails, don't show this notification
+          return false;
+        }
+      });
+      
+      // Return the filtered notifications
+      res.json(userNotifications);
+    } catch (error: any) {
+      await logError(req.user?.id, "get_notifications", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Mark notification as read
+  app.post("/api/notifications/:id/read", authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const notificationId = parseInt(id);
+      
+      // Update the notification in the database
+      const { db } = await import("@db");
+      await db.update(notifications)
+        .set({ isRead: true })
+        .where(eq(notifications.id, notificationId));
+      
+      res.json({ message: "Notification marked as read" });
+    } catch (error: any) {
+      await logError(req.user?.id, "mark_notification_read", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Create a new notification (admin only)
+  app.post("/api/notifications", authenticateUser, requireAdmin, async (req, res) => {
+    try {
+      const { message, targetRoles, isUrgent } = req.body;
+      
+      // Validate the notification data
+      const parsedData = {
+        message,
+        targetRoles: targetRoles as string[], // Ensure it's treated as a string array for the database
+        isUrgent: isUrgent || false,
+        isRead: false,
+        createdAt: new Date(),
+      };
+      
+      const parsed = insertNotificationSchema.parse(parsedData);
+      
+      // Insert the notification into the database
+      const { db } = await import("@db");
+      const [newNotification] = await db.insert(notifications)
+        .values(parsed)
+        .returning();
+      
+      res.status(201).json(newNotification);
+    } catch (error: any) {
+      await logError(req.user?.id, "create_notification", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   // ---------- ADMIN ROUTES ----------
 

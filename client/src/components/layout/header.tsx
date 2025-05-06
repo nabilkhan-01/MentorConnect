@@ -99,13 +99,28 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
                           notification.isRead ? 'opacity-70' : 'font-medium'
                         }`}
                       >
-                        <p className="text-sm text-neutral-500">{notification.message}</p>
-                        <p className="text-xs text-neutral-400 mt-1">
-                          {new Date(notification.timestamp).toLocaleString(undefined, {
-                            dateStyle: 'medium',
-                            timeStyle: 'short'
-                          })}
-                        </p>
+                        <div 
+                          onClick={() => {
+                            // Mark as read when clicked
+                            if (!notification.isRead) {
+                              fetch(`/api/notifications/${notification.id}/read`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json'
+                                }
+                              }).catch(err => console.error('Error marking notification as read:', err));
+                            }
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <p className="text-sm text-neutral-500">{notification.message}</p>
+                          <p className="text-xs text-neutral-400 mt-1">
+                            {new Date(notification.createdAt).toLocaleString(undefined, {
+                              dateStyle: 'medium',
+                              timeStyle: 'short'
+                            })}
+                          </p>
+                        </div>
                       </div>
                     ))
                   )}
