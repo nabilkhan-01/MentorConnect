@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Loader2, UploadCloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,7 +22,6 @@ export function ExcelUpload({
   const [isOpen, setIsOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [assignmentMethod, setAssignmentMethod] = useState<AssignmentMethod>("equal");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -73,10 +71,9 @@ export function ExcelUpload({
 
     setIsUploading(true);
     try {
-      await onUpload(selectedFile, assignmentMethod);
+      await onUpload(selectedFile);
       setIsOpen(false);
       setSelectedFile(null);
-      setAssignmentMethod("equal");
       toast({
         title: "Upload successful",
         description: "The Excel data has been processed successfully.",
@@ -148,22 +145,10 @@ export function ExcelUpload({
             )}
           </div>
           
-          <div className="space-y-2">
-            <Label>Assignment Method</Label>
-            <RadioGroup value={assignmentMethod} onValueChange={(value) => setAssignmentMethod(value as AssignmentMethod)}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="equal" id="equal" />
-                <Label htmlFor="equal">Equal Distribution</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="semester" id="semester" />
-                <Label htmlFor="semester">Based on Semester</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="manual" id="manual" />
-                <Label htmlFor="manual">Manual Assignment</Label>
-              </div>
-            </RadioGroup>
+          <div className="text-center mt-2">
+            <p className="text-sm text-muted-foreground">
+              Mentees will be automatically assigned to mentors with balanced distribution across semesters.              
+            </p>
           </div>
         </div>
         

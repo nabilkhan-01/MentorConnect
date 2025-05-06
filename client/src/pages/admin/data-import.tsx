@@ -172,8 +172,7 @@ export default function AdminDataImportPage() {
                         <ul className="list-disc pl-5 space-y-2 text-sm">
                           <li>Prepare your Excel file with the following columns: <strong>Name</strong>, <strong>Email</strong>, <strong>USN</strong>, <strong>Semester</strong>, <strong>Section</strong>, <strong>Batch</strong>, <strong>MobileNumber</strong>.</li>
                           <li>The <strong>USN</strong> and <strong>Name</strong> fields are required.</li>
-                          <li>The uploaded mentees will be automatically assigned to mentors with balanced distribution.</li>
-                          <li>Each mentor will receive mentees from different semesters (1-8).</li>
+                          <li>Mentees will be automatically assigned to mentors with balanced distribution across semesters.</li>
                           <li>The system will create user accounts with the USN as username and initial password.</li>
                           <li>If a mentee with the same USN already exists, their information will be updated.</li>
                         </ul>
