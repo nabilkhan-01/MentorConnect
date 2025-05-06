@@ -459,6 +459,43 @@ class DatabaseStorage implements IStorage {
       }
       return;
     }
+    
+    // Create a map of mentor loads and semester distribution
+    const mentorLoadMap: Record<number, {
+      totalCount: number, 
+      semesterCounts: Record<number, number>
+    }> = {};
+    
+    // Initialize load map for all available mentors
+    for (const mentor of availableMentors) {
+      mentorLoadMap[mentor.id] = {
+        totalCount: 0,
+        semesterCounts: {}
+      };
+    }
+    
+    // Get all current mentees to calculate mentor loads
+    const allMentees = await db.query.mentees.findMany({
+      where: eq(schema.mentees.isActive, true)
+    });
+    
+    // Calculate current mentee distribution across mentors
+    for (const mentee of allMentees) {
+      // Skip the mentees being reassigned
+      if (mentee.mentorId === fromMentorId) continue;
+      
+      // Skip unassigned mentees
+      if (!mentee.mentorId || !mentorLoadMap[mentee.mentorId]) continue;
+      
+      // Update total mentee count for this mentor
+      mentorLoadMap[mentee.mentorId].totalCount++;
+      
+      // Update semester count for this mentor
+      if (!mentorLoadMap[mentee.mentorId].semesterCounts[mentee.semester]) {
+        mentorLoadMap[mentee.mentorId].semesterCounts[mentee.semester] = 0;
+      }
+      mentorLoadMap[mentee.mentorId].semesterCounts[mentee.semester]++;
+    }
 
     // Group mentees by semester
     const bySemester: Record<number, schema.Mentee[]> = {};
@@ -469,35 +506,74 @@ class DatabaseStorage implements IStorage {
       bySemester[mentee.semester].push(mentee);
     }
 
+    // Log the reassignment plan
+    const reassignments: Array<{menteeId: number, fromMentorId: number, toMentorId: number, semester: number}> = [];
+    
     // For each semester group, assign mentees evenly among mentors
     for (const semester in bySemester) {
       const semesterMentees = bySemester[semester];
       
-      // Get current mentee counts for each mentor
-      const mentorMenteeCounts: Record<number, number> = {};
-      for (const mentor of availableMentors) {
-        mentorMenteeCounts[mentor.id] = await this.countMenteesByMentor(mentor.id);
-      }
-
-      // Reassign each mentee to the mentor with the fewest mentees
+      // Process each mentee in this semester group
       for (const mentee of semesterMentees) {
-        // Find mentor with fewest mentees
-        const mentorEntries = Object.entries(mentorMenteeCounts);
-        mentorEntries.sort((a, b) => a[1] - b[1]);
-        const [mentorId, count] = mentorEntries[0];
-
+        // First, try to find mentors who don't have any mentees from this semester
+        const semesterNeededMentors = availableMentors.filter(mentor => {
+          return !mentorLoadMap[mentor.id].semesterCounts[parseInt(semester)];
+        });
+        
+        let targetMentorId: number;
+        
+        if (semesterNeededMentors.length > 0) {
+          // Sort by total load (assign to least loaded mentor)
+          semesterNeededMentors.sort((a, b) => 
+            mentorLoadMap[a.id].totalCount - mentorLoadMap[b.id].totalCount
+          );
+          targetMentorId = semesterNeededMentors[0].id;
+        } else {
+          // All mentors already have mentees from this semester
+          // Simply assign to the mentor with the fewest mentees
+          const sortedMentors = [...availableMentors].sort((a, b) => 
+            mentorLoadMap[a.id].totalCount - mentorLoadMap[b.id].totalCount
+          );
+          targetMentorId = sortedMentors[0].id;
+        }
+        
         // Update mentee
         await db
           .update(schema.mentees)
           .set({ 
-            mentorId: parseInt(mentorId), 
+            mentorId: targetMentorId, 
             updatedAt: new Date() 
           })
           .where(eq(schema.mentees.id, mentee.id));
-
-        // Update count for this mentor
-        mentorMenteeCounts[parseInt(mentorId)]++;
+        
+        // Update our load tracking
+        mentorLoadMap[targetMentorId].totalCount++;
+        if (!mentorLoadMap[targetMentorId].semesterCounts[parseInt(semester)]) {
+          mentorLoadMap[targetMentorId].semesterCounts[parseInt(semester)] = 0;
+        }
+        mentorLoadMap[targetMentorId].semesterCounts[parseInt(semester)]++;
+        
+        // Record this reassignment for logging
+        reassignments.push({
+          menteeId: mentee.id,
+          fromMentorId: fromMentorId,
+          toMentorId: targetMentorId,
+          semester: parseInt(semester)
+        });
       }
+    }
+    
+    // Create a notification about reassignments
+    if (reassignments.length > 0) {
+      const message = `${reassignments.length} mentee(s) were automatically reassigned to new mentors.`;
+      
+      await db
+        .insert(schema.notifications)
+        .values({
+          message: message,
+          targetRoles: [schema.UserRole.ADMIN, schema.UserRole.MENTOR],
+          isUrgent: true
+        });
     }
   }
 
@@ -590,6 +666,55 @@ class DatabaseStorage implements IStorage {
     return await db.query.subjects.findMany({
       orderBy: [asc(schema.subjects.semester), asc(schema.subjects.name)],
     });
+  }
+  
+  async getSubjectsBySemester(semester: number): Promise<schema.Subject[]> {
+    return await db.query.subjects.findMany({
+      where: eq(schema.subjects.semester, semester),
+      orderBy: [asc(schema.subjects.name)],
+    });
+  }
+  
+  async getSubject(id: number): Promise<schema.Subject | undefined> {
+    return await db.query.subjects.findFirst({
+      where: eq(schema.subjects.id, id)
+    });
+  }
+  
+  async createSubject(subject: Omit<schema.InsertSubject, "id">): Promise<schema.Subject> {
+    const [newSubject] = await db.insert(schema.subjects).values(subject).returning();
+    return newSubject;
+  }
+  
+  async updateSubject(id: number, subjectData: Partial<schema.InsertSubject>): Promise<schema.Subject> {
+    const [updatedSubject] = await db
+      .update(schema.subjects)
+      .set({
+        ...subjectData,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.subjects.id, id))
+      .returning();
+    
+    if (!updatedSubject) {
+      throw new Error(`Subject with ID ${id} not found`);
+    }
+    
+    return updatedSubject;
+  }
+  
+  async deleteSubject(id: number): Promise<void> {
+    // First check if this subject is used in any academic records
+    const academicRecords = await db.query.academicRecords.findMany({
+      where: eq(schema.academicRecords.subjectId, id),
+      limit: 1
+    });
+    
+    if (academicRecords.length > 0) {
+      throw new Error("Cannot delete subject that is used in academic records");
+    }
+    
+    await db.delete(schema.subjects).where(eq(schema.subjects.id, id));
   }
 
   // Error log operations

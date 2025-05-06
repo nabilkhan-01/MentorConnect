@@ -10,6 +10,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminStudents from "@/pages/admin/students";
 import AdminMentors from "@/pages/admin/mentors";
 import AdminErrorLogs from "@/pages/admin/error-logs";
+import AdminSubjects from "@/pages/admin/subjects";
 
 // Mentor pages
 import MentorDashboard from "@/pages/mentor/dashboard";
@@ -32,6 +33,7 @@ function Router() {
       <ProtectedRoute path="/" component={AdminDashboard} />
       <ProtectedRoute path="/admin/students" component={AdminStudents} />
       <ProtectedRoute path="/admin/mentors" component={AdminMentors} />
+      <ProtectedRoute path="/admin/subjects" component={AdminSubjects} />
       <ProtectedRoute path="/admin/error-logs" component={AdminErrorLogs} />
       
       {/* Mentor Routes */}

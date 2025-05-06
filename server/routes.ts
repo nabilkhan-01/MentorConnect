@@ -1107,10 +1107,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get subjects
   app.get("/api/subjects", authenticateUser, async (req, res) => {
     try {
-      const subjectsList = await storage.getAllSubjects();
+      const semester = req.query.semester ? parseInt(req.query.semester as string) : undefined;
+      let subjectsList;
+      
+      if (semester) {
+        subjectsList = await storage.getSubjectsBySemester(semester);
+      } else {
+        subjectsList = await storage.getAllSubjects();
+      }
+      
       res.json(subjectsList);
     } catch (error: any) {
       await logError(req.user?.id, "get_subjects", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get subject by ID
+  app.get("/api/subjects/:id", authenticateUser, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subject = await storage.getSubject(parseInt(id));
+      
+      if (!subject) {
+        return res.status(404).json({ message: "Subject not found" });
+      }
+      
+      res.json(subject);
+    } catch (error: any) {
+      await logError(req.user?.id, "get_subject", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Admin subject management
+  app.post("/api/admin/subjects", authenticateUser, requireAdmin, async (req, res) => {
+    try {
+      const { code, name, semester } = req.body;
+      
+      // Basic validation
+      if (!code || !name || !semester) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Create new subject
+      const subject = await storage.createSubject({
+        code,
+        name,
+        semester: parseInt(semester)
+      });
+      
+      // Log activity
+      await storage.createErrorLog({
+        userId: req.user?.id,
+        type: "create_subject",
+        message: `Subject ${name} (${code}) created for semester ${semester}`,
+        details: ""
+      });
+      
+      res.status(201).json(subject);
+    } catch (error: any) {
+      await logError(req.user?.id, "create_subject", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Update subject
+  app.put("/api/admin/subjects/:id", authenticateUser, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { code, name, semester } = req.body;
+      
+      // Get existing subject
+      const subject = await storage.getSubject(parseInt(id));
+      if (!subject) {
+        return res.status(404).json({ message: "Subject not found" });
+      }
+      
+      // Update subject
+      const updatedSubject = await storage.updateSubject(parseInt(id), {
+        code,
+        name,
+        semester: parseInt(semester)
+      });
+      
+      // Log activity
+      await storage.createErrorLog({
+        userId: req.user?.id,
+        type: "update_subject",
+        message: `Subject ID ${id} updated: ${name} (${code}) for semester ${semester}`,
+        details: ""
+      });
+      
+      res.json(updatedSubject);
+    } catch (error: any) {
+      await logError(req.user?.id, "update_subject", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Delete subject
+  app.delete("/api/admin/subjects/:id", authenticateUser, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subject = await storage.getSubject(parseInt(id));
+      
+      if (!subject) {
+        return res.status(404).json({ message: "Subject not found" });
+      }
+      
+      // Try to delete subject
+      await storage.deleteSubject(parseInt(id));
+      
+      // Log activity
+      await storage.createErrorLog({
+        userId: req.user?.id,
+        type: "delete_subject",
+        message: `Subject ID ${id} (${subject.code} - ${subject.name}) deleted`,
+        details: ""
+      });
+      
+      res.status(200).json({ message: "Subject deleted successfully" });
+    } catch (error: any) {
+      await logError(req.user?.id, "delete_subject", error.message, error.stack);
       res.status(500).json({ message: error.message });
     }
   });
