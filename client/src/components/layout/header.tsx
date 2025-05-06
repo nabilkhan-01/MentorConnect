@@ -12,10 +12,10 @@ import { UserRole } from "@shared/schema";
 type Notification = {
   id: number;
   message: string;
-  timestamp: string;
-  isRead: boolean;
-  targetRoles: string[];
-  isUrgent?: boolean;
+  created_at: string;
+  is_read: boolean;
+  target_roles: string[];
+  is_urgent?: boolean;
 };
 
 export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => void, sidebarOpen?: boolean }) {
@@ -38,10 +38,10 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
   // Filter notifications based on user role
   const userRole = user.role;
   const filteredNotifications = notifications?.filter(notification => 
-    notification.targetRoles.includes(userRole) || notification.targetRoles.includes('all')
+    notification.target_roles.includes(userRole) || notification.target_roles.includes('all')
   ) || [];
   
-  const unreadCount = filteredNotifications.filter(notification => !notification.isRead).length;
+  const unreadCount = filteredNotifications.filter(notification => !notification.is_read).length;
 
   const userInitials = user.name
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase()
@@ -95,14 +95,14 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
                     filteredNotifications.map(notification => (
                       <div 
                         key={notification.id}
-                        className={`px-4 py-3 hover:bg-neutral-50 ${notification.isUrgent ? 'border-l-4 border-accent' : ''} ${
-                          notification.isRead ? 'opacity-70' : 'font-medium'
+                        className={`px-4 py-3 hover:bg-neutral-50 ${notification.is_urgent ? 'border-l-4 border-accent' : ''} ${
+                          notification.is_read ? 'opacity-70' : 'font-medium'
                         }`}
                       >
                         <div 
                           onClick={() => {
                             // Mark as read when clicked
-                            if (!notification.isRead) {
+                            if (!notification.is_read) {
                               fetch(`/api/notifications/${notification.id}/read`, {
                                 method: 'POST',
                                 headers: {
@@ -115,7 +115,7 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
                         >
                           <p className="text-sm text-neutral-500">{notification.message}</p>
                           <p className="text-xs text-neutral-400 mt-1">
-                            {new Date(notification.createdAt).toLocaleString(undefined, {
+                            {new Date(notification.created_at).toLocaleString(undefined, {
                               dateStyle: 'medium',
                               timeStyle: 'short'
                             })}
