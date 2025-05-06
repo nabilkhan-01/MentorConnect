@@ -518,6 +518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Assign mentor based on method
           let mentorId;
+          
           if (assignmentMethod === "equal") {
             // Simple round-robin assignment
             mentorId = mentorsList[i % mentorsList.length].id;
@@ -527,6 +528,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
             mentorId = semesterMentors.length > 0 
               ? semesterMentors[Math.floor(Math.random() * semesterMentors.length)].id
               : mentorsList[Math.floor(Math.random() * mentorsList.length)].id;
+          } else if (assignmentMethod === "balanced") {
+            // Advanced balanced assignment: distribute mentees evenly across mentors
+            // while ensuring mentors have mentees from all semesters
+            
+            // Get current mentee counts for each mentor
+            const mentorLoadMap: Record<number, {count: number, semesterCounts: Record<number, number>}> = {};
+            
+            // Initialize the load map
+            for (const mentor of mentorsList) {
+              mentorLoadMap[mentor.id] = {
+                count: 0,
+                semesterCounts: {}
+              };
+            }
+            
+            // Get all current mentees to calculate load
+            const allMentees = await storage.getAllMentees();
+            
+            // Count mentees per mentor and by semester
+            for (const mentee of allMentees) {
+              if (mentee.mentorId && mentorLoadMap[mentee.mentorId]) {
+                mentorLoadMap[mentee.mentorId].count++;
+                
+                if (!mentorLoadMap[mentee.mentorId].semesterCounts[mentee.semester]) {
+                  mentorLoadMap[mentee.mentorId].semesterCounts[mentee.semester] = 0;
+                }
+                mentorLoadMap[mentee.mentorId].semesterCounts[mentee.semester]++;
+              }
+            }
+            
+            // First, try to assign to a mentor who doesn't have mentees from this semester
+            const semesterNeededMentors = mentorsList.filter(mentor => {
+              return !mentorLoadMap[mentor.id].semesterCounts[student.semester];
+            });
+            
+            if (semesterNeededMentors.length > 0) {
+              // Sort by total load (assign to least loaded mentor)
+              semesterNeededMentors.sort((a, b) => 
+                mentorLoadMap[a.id].count - mentorLoadMap[b.id].count
+              );
+              mentorId = semesterNeededMentors[0].id;
+            } else {
+              // All mentors already have mentees from this semester
+              // Simply assign to the mentor with the fewest mentees
+              const sortedMentors = [...mentorsList].sort((a, b) => 
+                mentorLoadMap[a.id].count - mentorLoadMap[b.id].count
+              );
+              mentorId = sortedMentors[0].id;
+            }
           } else {
             // For manual, just leave it null
             mentorId = null;
