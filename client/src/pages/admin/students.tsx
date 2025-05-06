@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import StudentTable from "@/components/student/student-table";
 import StudentForm from "@/components/student/student-form";
-import ExcelUpload from "@/components/excel/excel-upload";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -92,32 +91,7 @@ export default function AdminStudents() {
     },
   });
   
-  // Excel upload handler
-  const handleExcelUpload = async (file: File, assignmentMethod: string) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('assignmentMethod', assignmentMethod);
-    
-    try {
-      await fetch('/api/admin/upload-students', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
-      toast({
-        title: "Upload successful",
-        description: "Student data has been uploaded and assigned successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An error occurred during upload.",
-        variant: "destructive",
-      });
-    }
-  };
+
   
   // Handlers
   const handleAddStudent = (data: StudentWithMentorInfo) => {
@@ -144,7 +118,6 @@ export default function AdminStudents() {
       <div className="flex flex-col md:flex-row justify-between mb-6 items-start md:items-center">
         <div></div>
         <div className="flex gap-3 mt-4 md:mt-0">
-          <ExcelUpload onUpload={handleExcelUpload} buttonText="Upload Excel" />
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Student

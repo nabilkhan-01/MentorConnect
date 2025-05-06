@@ -248,10 +248,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { message, targetRoles, isUrgent } = req.body;
       
+      // Ensure targetRoles is properly handled as an array
+      let roles = [];
+      if (Array.isArray(targetRoles)) {
+        roles = targetRoles;
+      } else if (typeof targetRoles === 'string') {
+        try {
+          // If it's a JSON string, parse it
+          roles = JSON.parse(targetRoles);
+        } catch {
+          // If parsing fails, treat it as a single role
+          roles = [targetRoles];
+        }
+      }
+      
       // Validate the notification data
       const parsedData = {
         message,
-        targetRoles: targetRoles as string[], // Ensure it's treated as a string array for the database
+        targetRoles: roles,
         isUrgent: isUrgent || false,
         isRead: false,
         createdAt: new Date(),
