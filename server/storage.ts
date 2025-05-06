@@ -55,6 +55,7 @@ export interface IStorage {
   countMentees: () => Promise<number>;
   countMenteesByMentor: (mentorId: number) => Promise<number>;
   reassignMentees: (fromMentorId: number) => Promise<void>;
+  assignMenteesToMentors: () => Promise<{assignedCount: number, mentorCount: number}>;
   
   // Academic record operations
   getAcademicRecord: (menteeId: number, subjectId: number, semester: number, academicYear: string) => Promise<schema.AcademicRecord | undefined>;
