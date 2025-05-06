@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import ExcelUpload from "@/components/admin/excel-upload";
-import { queryClient } from "@/lib/queryClient";
-import { Download, Users, UserPlus } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Download, Users, UserPlus, Shuffle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function AdminDataImportPage() {
   const { toast } = useToast();
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignmentResult, setAssignmentResult] = useState<{ success: boolean; message: string; result?: { assignedCount: number; mentorCount: number } } | null>(null);
 
   // Handle successful mentor upload
   const handleMentorUploadSuccess = () => {
@@ -59,6 +62,47 @@ export default function AdminDataImportPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Handle balanced reassignment of mentees
+  const handleBalancedAssignment = async () => {
+    setIsAssigning(true);
+    setAssignmentResult(null);
+    
+    try {
+      const response = await apiRequest("POST", "/api/admin/reassign-mentees");
+      const result = await response.json();
+      
+      setAssignmentResult(result);
+      
+      if (result.success) {
+        toast({
+          title: "Reassignment successful",
+          description: result.message,
+        });
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      } else {
+        toast({
+          title: "Reassignment error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Reassignment error:", error);
+      toast({
+        title: "Reassignment failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAssigning(false);
+    }
   };
 
   return (

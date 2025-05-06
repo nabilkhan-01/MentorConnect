@@ -14,10 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 type Notification = {
   id: number;
   message: string;
-  created_at: string;
-  is_read: boolean;
-  target_roles: string[];
-  is_urgent?: boolean;
+  createdAt: string;
+  isRead: boolean;
+  targetRoles: string[];
+  isUrgent?: boolean;
 };
 
 export default function NotificationsPage() {
