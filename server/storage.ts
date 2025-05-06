@@ -578,6 +578,165 @@ class DatabaseStorage implements IStorage {
     }
   }
 
+  // Method to assign mentees to mentors in a balanced way
+  async assignMenteesToMentors(): Promise<{assignedCount: number, mentorCount: number}> {
+    // Get all active mentors
+    const mentors = await db.query.mentors.findMany({
+      where: eq(schema.mentors.isActive, true),
+    });
+
+    if (mentors.length === 0) {
+      throw new Error("No active mentors found. Cannot assign mentees.");
+    }
+
+    // Get all unassigned mentees
+    const unassignedMentees = await db.query.mentees.findMany({
+      where: and(
+        eq(schema.mentees.isActive, true),
+        sql`${schema.mentees.mentorId} IS NULL`
+      ),
+    });
+
+    // If no unassigned mentees, return early
+    if (unassignedMentees.length === 0) {
+      return { assignedCount: 0, mentorCount: mentors.length };
+    }
+
+    // Build mentor load map to keep track of mentee distribution by semester
+    const mentorLoadMap: Record<number, { 
+      count: number, 
+      semesterCounts: Record<number, number>
+    }> = {};
+
+    // Initialize load map for all mentors
+    for (const mentor of mentors) {
+      mentorLoadMap[mentor.id] = {
+        count: 0,
+        semesterCounts: {}
+      };
+
+      // Initialize semester counters (1-8)
+      for (let sem = 1; sem <= 8; sem++) {
+        mentorLoadMap[mentor.id].semesterCounts[sem] = 0;
+      }
+    }
+
+    // Get all current mentee assignments to calculate current load
+    const assignedMentees = await db.query.mentees.findMany({
+      where: and(
+        eq(schema.mentees.isActive, true),
+        sql`${schema.mentees.mentorId} IS NOT NULL`
+      ),
+    });
+
+    // Update mentor load map with current assignments
+    for (const mentee of assignedMentees) {
+      if (mentee.mentorId && mentorLoadMap[mentee.mentorId]) {
+        mentorLoadMap[mentee.mentorId].count++;
+        
+        // Track semester counts
+        const semester = mentee.semester || 1;
+        mentorLoadMap[mentee.mentorId].semesterCounts[semester] = 
+          (mentorLoadMap[mentee.mentorId].semesterCounts[semester] || 0) + 1;
+      }
+    }
+
+    // Group unassigned mentees by semester
+    const menteesBySemester: Record<number, schema.Mentee[]> = {};
+    for (let sem = 1; sem <= 8; sem++) {
+      menteesBySemester[sem] = unassignedMentees.filter(m => (m.semester || 1) === sem);
+    }
+
+    // Total assignments made
+    let assignmentCount = 0;
+    // Track assigned mentees
+    const assignedMenteeIds: number[] = [];
+    // Keep track of assignments to perform at the end
+    const assignmentUpdates: {menteeId: number, mentorId: number}[] = [];
+
+    // First pass: try to ensure each mentor has at least one mentee from each semester
+    for (let sem = 1; sem <= 8; sem++) {
+      const menteeGroup = menteesBySemester[sem] || [];
+
+      // For each semester, find mentors who don't have mentees from this semester
+      for (const mentor of mentors) {
+        // If no more mentees in this semester, move to next semester
+        if (menteeGroup.length === 0) break;
+        
+        // Skip if mentor already has mentees from this semester
+        if (mentorLoadMap[mentor.id].semesterCounts[sem] > 0) continue;
+        
+        // Get next mentee from this semester
+        const mentee = menteeGroup.shift();
+        if (mentee) {
+          // Assign mentee to this mentor
+          assignmentUpdates.push({
+            menteeId: mentee.id,
+            mentorId: mentor.id
+          });
+          
+          // Update tracking data
+          assignedMenteeIds.push(mentee.id);
+          mentorLoadMap[mentor.id].count++;
+          mentorLoadMap[mentor.id].semesterCounts[sem]++;
+          assignmentCount++;
+        }
+      }
+    }
+
+    // Second pass: distribute remaining unassigned mentees evenly
+    // First, filter out already assigned mentees
+    const remainingMentees = unassignedMentees.filter(m => !assignedMenteeIds.includes(m.id));
+
+    for (const mentee of remainingMentees) {
+      // Find the mentor with the lowest load for this semester
+      const semester = mentee.semester || 1;
+      
+      // Sort mentors by total count first, then by count for this specific semester
+      const sortedMentors = [...mentors].sort((a, b) => {
+        // First compare total counts
+        const countDiff = mentorLoadMap[a.id].count - mentorLoadMap[b.id].count;
+        if (countDiff !== 0) return countDiff;
+        
+        // If total counts are equal, compare counts for this semester
+        return mentorLoadMap[a.id].semesterCounts[semester] - mentorLoadMap[b.id].semesterCounts[semester];
+      });
+      
+      // Assign to the mentor with the lowest load
+      const targetMentor = sortedMentors[0];
+      
+      assignmentUpdates.push({
+        menteeId: mentee.id,
+        mentorId: targetMentor.id
+      });
+      
+      // Update tracking data
+      mentorLoadMap[targetMentor.id].count++;
+      mentorLoadMap[targetMentor.id].semesterCounts[semester]++;
+      assignmentCount++;
+    }
+
+    // Perform all assignments in the database
+    for (const update of assignmentUpdates) {
+      await db.update(schema.mentees)
+        .set({ mentorId: update.mentorId })
+        .where(eq(schema.mentees.id, update.menteeId));
+    }
+
+    // If we made any assignments, create a notification
+    if (assignmentCount > 0) {
+      await db.insert(schema.notifications).values({
+        message: `${assignmentCount} mentees have been automatically assigned to mentors with balanced distribution across semesters.`,
+        targetRoles: [schema.UserRole.ADMIN, schema.UserRole.MENTOR],
+        isRead: false,
+        isUrgent: false,
+        createdAt: new Date(),
+      });
+    }
+
+    return { assignedCount: assignmentCount, mentorCount: mentors.length };
+  }
+
   // Academic record operations
   async getAcademicRecord(
     menteeId: number,
