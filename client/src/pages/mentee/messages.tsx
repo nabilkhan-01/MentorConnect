@@ -93,10 +93,17 @@ export default function MenteeMessages() {
   const form = useForm<MessageFormValues>({
     resolver: zodResolver(messageSchema),
     defaultValues: {
-      receiverId: menteeData?.mentor?.userId || 0,
+      receiverId: 0,
       content: "",
     },
   });
+  
+  // Update the receiverId whenever menteeData changes
+  useState(() => {
+    if (menteeData?.mentor?.userId) {
+      form.setValue("receiverId", menteeData.mentor.userId);
+    }
+  }, [menteeData?.mentor?.userId]);
 
   function onSubmit(data: MessageFormValues) {
     sendMutation.mutate(data);
