@@ -38,7 +38,10 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
   // Filter notifications based on user role
   const userRole = user.role;
   const filteredNotifications = notifications?.filter(notification => 
-    notification.target_roles.includes(userRole) || notification.target_roles.includes('all')
+    notification.target_roles && (
+      notification.target_roles.includes(userRole) || 
+      notification.target_roles.includes('all')
+    )
   ) || [];
   
   const unreadCount = filteredNotifications.filter(notification => !notification.is_read).length;

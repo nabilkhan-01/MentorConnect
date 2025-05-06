@@ -53,7 +53,7 @@ export default function NotificationsPage() {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       // Since we don't have a batch endpoint, we'll use Promise.all to make multiple requests
-      const unreadNotifications = notifications.filter(n => !n.is_read);
+      const unreadNotifications = notifications.filter(n => n && !n.is_read);
       await Promise.all(
         unreadNotifications.map(notification => 
           apiRequest("POST", `/api/notifications/${notification.id}/read`, {})
@@ -89,11 +89,11 @@ export default function NotificationsPage() {
 
   // Filter notifications based on the showUnreadOnly toggle
   const filteredNotifications = showUnreadOnly 
-    ? notifications.filter(notification => !notification.is_read)
+    ? notifications.filter(notification => notification && !notification.is_read)
     : notifications;
 
   // Count unread notifications
-  const unreadCount = notifications.filter(notification => !notification.is_read).length;
+  const unreadCount = notifications.filter(notification => notification && !notification.is_read).length;
 
   if (!user) return null;
 
