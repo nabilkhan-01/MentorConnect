@@ -4,6 +4,7 @@ import AuthPage from "@/pages/auth-page";
 import NotFound from "@/pages/not-found";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
+import NotificationsPage from "@/pages/notifications";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -50,6 +51,7 @@ function Router() {
       {/* Common User Routes */}
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
+      <ProtectedRoute path="/notifications" component={NotificationsPage} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />

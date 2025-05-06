@@ -108,7 +108,12 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
                                 headers: {
                                   'Content-Type': 'application/json'
                                 }
-                              }).catch(err => console.error('Error marking notification as read:', err));
+                              })
+                              .then(() => {
+                                // Invalidate the notifications query to refresh the data
+                                window.location.reload();
+                              })
+                              .catch(err => console.error('Error marking notification as read:', err));
                             }
                           }}
                           className="cursor-pointer"

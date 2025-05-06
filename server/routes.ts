@@ -1341,6 +1341,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark notification as read
+  app.post("/api/notifications/:id/read", authenticateUser, async (req, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      
+      // Update notification in the database
+      const { db } = await import("@db");
+      await db.update(notifications)
+        .set({ is_read: true })
+        .where(eq(notifications.id, notificationId));
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      await logError(req.user?.id, "mark_notification_read", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get all notifications endpoint (with filtering)
+  app.get("/api/notifications", authenticateUser, async (req, res) => {
+    try {
+      // Get user role
+      const userRole = req.user.role;
+      
+      // Get notifications from the database
+      const { db } = await import("@db");
+      const allNotifications = await db.query.notifications.findMany({
+        orderBy: [desc(notifications.created_at)],
+      });
+      
+      // Filter notifications by user role
+      const userNotifications = allNotifications.filter(notification => {
+        if (!notification.target_roles) return false;
+        
+        // Check if the notification's target_roles array includes the user's role
+        // or includes 'all' which means it's for everyone
+        try {
+          const roles = notification.target_roles as string[];
+          return roles.includes(userRole) || roles.includes('all');
+        } catch (e) {
+          return false;
+        }
+      });
+      
+      res.json(userNotifications);
+    } catch (error: any) {
+      await logError(req.user?.id, "get_notifications", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
