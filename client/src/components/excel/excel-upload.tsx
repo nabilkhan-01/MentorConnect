@@ -1,15 +1,12 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Loader2, UploadCloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type AssignmentMethod = "equal" | "semester" | "manual";
-
 type ExcelUploadProps = {
-  onUpload: (file: File, assignmentMethod: AssignmentMethod) => Promise<void>;
+  onUpload: (file: File) => Promise<void>;
   buttonText?: string;
   dialogTitle?: string;
   dialogDescription?: string;
