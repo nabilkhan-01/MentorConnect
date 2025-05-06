@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 
 type MentorWithDetails = {
   id: number;
@@ -122,11 +122,60 @@ export default function AdminMentors() {
     setIsEditDialogOpen(true);
   };
   
+  const handleExportData = () => {
+    if (!mentors || mentors.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no mentors to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert data to CSV format
+    const headers = ["Name", "Email", "Department", "Specialization", "Mobile Number", "Mentee Count", "Status"];
+    const csvData = mentors.map(mentor => [
+      mentor.name || "",
+      mentor.email || "",
+      mentor.department || "",
+      mentor.specialization || "",
+      mentor.mobileNumber || "",
+      mentor.menteeCount !== undefined ? mentor.menteeCount.toString() : "",
+      mentor.isActive ? "Active" : "Inactive"
+    ]);
+    
+    // Create CSV string
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map(row => row.join(","))
+    ].join("\n");
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `mentors_data_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Export successful",
+      description: "Mentor data has been exported to CSV.",
+    });
+  };
+  
   return (
     <DashboardLayout pageTitle="Mentor Management" pageDescription="View and manage all mentors in the system">
       <div className="flex flex-col md:flex-row justify-between mb-6 items-start md:items-center">
         <div></div>
         <div className="flex gap-3 mt-4 md:mt-0">
+          <Button onClick={handleExportData} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export Data
+          </Button>
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Mentor

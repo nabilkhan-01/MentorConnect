@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Mentee } from "@shared/schema";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 
 type StudentWithMentorInfo = Partial<Mentee & { name?: string, email?: string, attendance?: number, mentorName?: string }>;
 
@@ -114,11 +114,62 @@ export default function AdminStudents() {
     setIsEditDialogOpen(true);
   };
   
+  const handleExportData = () => {
+    if (!students || students.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no students to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Convert data to CSV format
+    const headers = ["Name", "USN", "Email", "Semester", "Section", "Mobile Number", "Parent Mobile Number", "Mentor", "Attendance"];
+    const csvData = students.map(student => [
+      student.name || "",
+      student.usn || "",
+      student.email || "",
+      student.semester || "",
+      student.section || "",
+      student.mobileNumber || "",
+      student.parentMobileNumber || "",
+      student.mentorName || "",
+      student.attendance ? `${student.attendance.toFixed(1)}%` : ""
+    ]);
+    
+    // Create CSV string
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map(row => row.join(","))
+    ].join("\n");
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `students_data_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Export successful",
+      description: "Student data has been exported to CSV.",
+    });
+  };
+  
   return (
     <DashboardLayout pageTitle="Student Management" pageDescription="View and manage all students in the system">
       <div className="flex flex-col md:flex-row justify-between mb-6 items-start md:items-center">
         <div></div>
         <div className="flex gap-3 mt-4 md:mt-0">
+          <Button onClick={handleExportData} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export Data
+          </Button>
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Student
