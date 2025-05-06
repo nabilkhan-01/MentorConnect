@@ -750,7 +750,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update a mentee's academic record
   app.post("/api/mentor/academic-records", authenticateUser, requireMentor, async (req, res) => {
     try {
-      const { menteeId, subjectId, cieMarks, assignmentMarks, totalMarks, attendance, semester, academicYear } = req.body;
+      const { 
+        menteeId, 
+        subjectId, 
+        cie1Marks, 
+        cie2Marks, 
+        cie3Marks, 
+        assignmentMarks, 
+        attendance, 
+        semester, 
+        academicYear 
+      } = req.body;
+
+      // Calculate average CIE marks (out of 30)
+      const filledCieMarks = [];
+      if (cie1Marks !== undefined && cie1Marks !== null) filledCieMarks.push(Number(cie1Marks));
+      if (cie2Marks !== undefined && cie2Marks !== null) filledCieMarks.push(Number(cie2Marks));
+      if (cie3Marks !== undefined && cie3Marks !== null) filledCieMarks.push(Number(cie3Marks));
+      
+      const avgCieMarks = filledCieMarks.length > 0 
+        ? filledCieMarks.reduce((sum, mark) => sum + mark, 0) / filledCieMarks.length 
+        : null;
+      
+      // Calculate total marks (average CIE + assignment, out of 50)
+      const totalMarks = (avgCieMarks !== null && assignmentMarks !== undefined && assignmentMarks !== null)
+        ? avgCieMarks + Number(assignmentMarks)
+        : null;
 
       // Verify mentee belongs to this mentor
       const mentorRecord = await storage.getMentorByUserId(req.user.id);
@@ -769,7 +794,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (existingRecord) {
         academicRecord = await storage.updateAcademicRecord(existingRecord.id, {
-          cieMarks,
+          cie1Marks,
+          cie2Marks,
+          cie3Marks,
+          avgCieMarks,
           assignmentMarks,
           totalMarks,
           attendance,
@@ -778,7 +806,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         academicRecord = await storage.createAcademicRecord({
           menteeId,
           subjectId,
-          cieMarks,
+          cie1Marks,
+          cie2Marks,
+          cie3Marks,
+          avgCieMarks,
           assignmentMarks,
           totalMarks,
           attendance,

@@ -64,10 +64,13 @@ export const academicRecords = pgTable("academic_records", {
   id: serial("id").primaryKey(),
   menteeId: integer("mentee_id").references(() => mentees.id).notNull(),
   subjectId: integer("subject_id").references(() => subjects.id).notNull(),
-  cieMarks: real("cie_marks"),
-  assignmentMarks: real("assignment_marks"),
-  totalMarks: real("total_marks"),
-  attendance: real("attendance"),
+  cie1Marks: real("cie1_marks"),  // CIE 1 marks out of 30
+  cie2Marks: real("cie2_marks"),  // CIE 2 marks out of 30
+  cie3Marks: real("cie3_marks"),  // CIE 3 marks out of 30
+  avgCieMarks: real("avg_cie_marks"),  // Average of CIE marks out of 30
+  assignmentMarks: real("assignment_marks"),  // Assignment marks out of 20
+  totalMarks: real("total_marks"),  // Total = avgCieMarks + assignmentMarks (out of 50)
+  attendance: real("attendance"),  // Attendance percentage
   semester: integer("semester").notNull(),
   academicYear: text("academic_year").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -211,9 +214,12 @@ export const insertSubjectSchema = createInsertSchema(subjects);
 export const selectSubjectSchema = createSelectSchema(subjects);
 
 export const insertAcademicRecordSchema = createInsertSchema(academicRecords, {
-  cieMarks: (schema) => schema.gte(0, "CIE marks cannot be negative").lte(50, "CIE marks cannot exceed 50"),
-  assignmentMarks: (schema) => schema.gte(0, "Assignment marks cannot be negative").lte(50, "Assignment marks cannot exceed 50"),
-  totalMarks: (schema) => schema.gte(0, "Total marks cannot be negative").lte(100, "Total marks cannot exceed 100"),
+  cie1Marks: (schema) => schema.gte(0, "CIE 1 marks cannot be negative").lte(30, "CIE 1 marks cannot exceed 30"),
+  cie2Marks: (schema) => schema.gte(0, "CIE 2 marks cannot be negative").lte(30, "CIE 2 marks cannot exceed 30"),
+  cie3Marks: (schema) => schema.gte(0, "CIE 3 marks cannot be negative").lte(30, "CIE 3 marks cannot exceed 30"),
+  avgCieMarks: (schema) => schema.gte(0, "Average CIE marks cannot be negative").lte(30, "Average CIE marks cannot exceed 30"),
+  assignmentMarks: (schema) => schema.gte(0, "Assignment marks cannot be negative").lte(20, "Assignment marks cannot exceed 20"),
+  totalMarks: (schema) => schema.gte(0, "Total marks cannot be negative").lte(50, "Total marks cannot exceed 50"),
   attendance: (schema) => schema.gte(0, "Attendance cannot be negative").lte(100, "Attendance cannot exceed 100%"),
 });
 export const selectAcademicRecordSchema = createSelectSchema(academicRecords);
