@@ -632,6 +632,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Run the balanced assignment of mentees to mentors
+  app.post("/api/admin/mentees/assign", authenticateUser, requireAdmin, async (req, res) => {
+    try {
+      const result = await storage.assignMenteesToMentors();
+      
+      if (result.assignedCount === 0) {
+        return res.json({
+          success: true,
+          message: "No unassigned mentees found. All mentees are already assigned to mentors.",
+          result
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: `Successfully assigned ${result.assignedCount} mentees to ${result.mentorCount} mentors with balanced distribution across semesters.`,
+        result
+      });
+    } catch (error: any) {
+      await logError(req.user?.id, "assign_mentees", error.message, error.stack);
+      res.status(500).json({ 
+        success: false,
+        message: error.message 
+      });
+    }
+  });
+
   // Get all mentors
   app.get("/api/mentors", authenticateUser, async (req, res) => {
     try {
