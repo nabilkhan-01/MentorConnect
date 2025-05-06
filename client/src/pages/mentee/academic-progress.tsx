@@ -14,7 +14,10 @@ type AcademicRecord = {
   id: number;
   menteeId: number;
   subjectId: number;
-  cieMarks?: number;
+  cie1Marks?: number;
+  cie2Marks?: number;
+  cie3Marks?: number;
+  avgCieMarks?: number;
   assignmentMarks?: number;
   totalMarks?: number;
   attendance?: number;
@@ -316,6 +319,17 @@ export default function AcademicProgressPage() {
                 Subject-wise breakdown of your academic performance
               </CardDescription>
             </CardHeader>
+            <div className="px-6 pb-2">
+              <div className="bg-blue-50 p-4 rounded-md mb-4">
+                <h4 className="text-sm font-medium text-blue-800">Understanding Your Academic Records</h4>
+                <div className="mt-1 text-xs text-blue-700 space-y-1">
+                  <p>• <strong>CIE 1, 2, 3</strong>: Individual Continuous Internal Evaluation marks (each out of 30)</p>
+                  <p>• <strong>Avg CIE</strong>: Average of your CIE marks (out of 30)</p>
+                  <p>• <strong>Assignment</strong>: Assignment score (out of 20)</p>
+                  <p>• <strong>Total Marks</strong>: Combined score (Average CIE + Assignment = max 50)</p>
+                </div>
+              </div>
+            </div>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
@@ -324,7 +338,10 @@ export default function AcademicProgressPage() {
                       <TableHead>Subject Code</TableHead>
                       <TableHead>Subject Name</TableHead>
                       <TableHead>Semester</TableHead>
-                      <TableHead>CIE Marks</TableHead>
+                      <TableHead>CIE 1</TableHead>
+                      <TableHead>CIE 2</TableHead>
+                      <TableHead>CIE 3</TableHead>
+                      <TableHead>Avg CIE</TableHead>
                       <TableHead>Assignment</TableHead>
                       <TableHead>Total Marks</TableHead>
                       <TableHead>Attendance</TableHead>
@@ -337,12 +354,15 @@ export default function AcademicProgressPage() {
                         <TableCell className="font-medium">{record.subject.code}</TableCell>
                         <TableCell>{record.subject.name}</TableCell>
                         <TableCell>{record.semester}</TableCell>
-                        <TableCell>{record.cieMarks || "-"}</TableCell>
-                        <TableCell>{record.assignmentMarks || "-"}</TableCell>
+                        <TableCell>{record.cie1Marks !== null && record.cie1Marks !== undefined ? record.cie1Marks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.cie2Marks !== null && record.cie2Marks !== undefined ? record.cie2Marks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.cie3Marks !== null && record.cie3Marks !== undefined ? record.cie3Marks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.avgCieMarks !== null && record.avgCieMarks !== undefined ? record.avgCieMarks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.assignmentMarks !== null && record.assignmentMarks !== undefined ? record.assignmentMarks.toFixed(1) : "-"}</TableCell>
                         <TableCell>
-                          <Badge variant={record.totalMarks && record.totalMarks < 40 ? "destructive" : "outline"}
-                            className={record.totalMarks && record.totalMarks >= 75 ? "bg-green-50 text-green-700 border-green-200" : ""}>
-                            {record.totalMarks || "-"}
+                          <Badge variant={record.totalMarks && record.totalMarks < 20 ? "destructive" : "outline"}
+                            className={record.totalMarks && record.totalMarks >= 40 ? "bg-green-50 text-green-700 border-green-200" : ""}>
+                            {record.totalMarks !== null && record.totalMarks !== undefined ? record.totalMarks.toFixed(1) : "-"}
                           </Badge>
                         </TableCell>
                         <TableCell>
