@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -98,21 +98,27 @@ export default function MenteeMessages() {
     },
   });
   
-  // Update the receiverId whenever menteeData changes
-  useState(() => {
+  // Effect to update the receiverId whenever menteeData changes
+  useEffect(() => {
     if (menteeData?.mentor?.userId) {
       form.setValue("receiverId", menteeData.mentor.userId);
     }
-  }, [menteeData?.mentor?.userId]);
+  }, [menteeData?.mentor?.userId, form]);
 
   function onSubmit(data: MessageFormValues) {
     sendMutation.mutate(data);
   }
 
   // Extract unique conversation partners
-  const conversationPartners = messages ? [...new Set(messages.map((m: Message) => 
-    m.senderId === user?.id ? m.receiverId : m.senderId
-  ))].map(partnerId => {
+  const conversationPartners = messages ? 
+    // First get all partner IDs
+    messages.map((m: Message) => 
+      m.senderId === user?.id ? m.receiverId : m.senderId
+    )
+    // Filter unique IDs
+    .filter((value, index, self) => self.indexOf(value) === index)
+    // Map to partner data
+    .map(partnerId => {
     const message = messages.find((m: Message) => 
       m.senderId === partnerId || m.receiverId === partnerId
     );
