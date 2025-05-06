@@ -17,6 +17,7 @@ export default function AdminStudents() {
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithMentorInfo | null>(null);
   
   // Fetch students
@@ -130,10 +131,8 @@ export default function AdminStudents() {
         onEdit={openEditDialog}
         onDelete={handleDeleteStudent}
         onView={(student) => {
-          toast({
-            title: "View Student",
-            description: `Viewing ${student.name || 'student'}'s details`,
-          });
+          setSelectedStudent(student);
+          setIsViewDialogOpen(true);
         }}
         isLoading={isLoading}
       />
@@ -171,6 +170,78 @@ export default function AdminStudents() {
               isSubmitting={updateStudentMutation.isPending}
               mode="edit"
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Student Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Student Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the student.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStudent && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h3 className="font-medium text-sm">Basic Information</h3>
+                  <dl className="grid grid-cols-2 gap-2 text-sm">
+                    <dt className="text-muted-foreground">Name:</dt>
+                    <dd>{selectedStudent.name || 'N/A'}</dd>
+                    <dt className="text-muted-foreground">USN:</dt>
+                    <dd>{selectedStudent.usn || 'N/A'}</dd>
+                    <dt className="text-muted-foreground">Email:</dt>
+                    <dd>{selectedStudent.email || 'N/A'}</dd>
+                  </dl>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-medium text-sm">Academic Information</h3>
+                  <dl className="grid grid-cols-2 gap-2 text-sm">
+                    <dt className="text-muted-foreground">Semester:</dt>
+                    <dd>{selectedStudent.semester || 'N/A'}</dd>
+                    <dt className="text-muted-foreground">Section:</dt>
+                    <dd>{selectedStudent.section || 'N/A'}</dd>
+                    <dt className="text-muted-foreground">Attendance:</dt>
+                    <dd>
+                      {selectedStudent.attendance !== undefined ? (
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${selectedStudent.attendance < 85 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                          {selectedStudent.attendance.toFixed(1)}%
+                        </span>
+                      ) : (
+                        'N/A'
+                      )}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-medium text-sm">Contact Information</h3>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <dt className="text-muted-foreground">Mobile Number:</dt>
+                  <dd>{selectedStudent.mobileNumber || 'N/A'}</dd>
+                  <dt className="text-muted-foreground">Parent Mobile Number:</dt>
+                  <dd>{selectedStudent.parentMobileNumber || 'N/A'}</dd>
+                </dl>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-medium text-sm">Mentor Information</h3>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <dt className="text-muted-foreground">Mentor:</dt>
+                  <dd>{selectedStudent.mentorName || 'No mentor assigned'}</dd>
+                </dl>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={() => setIsViewDialogOpen(false)} variant="outline">
+                  Close
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
