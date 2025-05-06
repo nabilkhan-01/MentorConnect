@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { storage } from "./storage";
 import multer from "multer";
+import * as xlsx from "xlsx";
 import { eq, and, desc, lt, asc } from "drizzle-orm";
 import {
   users,
@@ -1388,6 +1389,287 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userNotifications);
     } catch (error: any) {
       await logError(req.user?.id, "get_notifications", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ---------- EXCEL UPLOAD ROUTES ----------
+
+  // Upload mentees from Excel file
+  app.post("/api/admin/upload/mentees", authenticateUser, requireAdmin, upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Read the Excel file
+      const workbook = xlsx.read(req.file.buffer);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = xlsx.utils.sheet_to_json(worksheet);
+
+      if (!data || data.length === 0) {
+        return res.status(400).json({ message: "Excel file is empty or has invalid format" });
+      }
+
+      // Process mentee data and create users and mentees
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      for (const row of data) {
+        try {
+          // Extract data from row
+          const usn = row.USN || row.usn;
+          const name = row.Name || row.name;
+          const email = row.Email || row.email;
+          const mobileNumber = row.MobileNumber || row.mobileNumber || row.Mobile || row.mobile;
+          const semester = parseInt(row.Semester || row.semester) || 1;
+          const section = row.Section || row.section;
+          const batch = row.Batch || row.batch;
+
+          if (!usn || !name) {
+            throw new Error(`Missing required fields (USN, name) for row: ${JSON.stringify(row)}`);
+          }
+
+          // Check if mentee with this USN already exists
+          const existingMentee = await storage.getMenteeByUsn(usn);
+          if (existingMentee) {
+            // Update the existing mentee
+            const updatedMentee = await storage.updateMentee(existingMentee.id, {
+              usn,
+              semester,
+              section,
+              batch,
+              mobileNumber,
+            });
+
+            // Update the user account
+            if (existingMentee.userId) {
+              await storage.updateUser(existingMentee.userId, {
+                name,
+                email: email || undefined,
+              });
+            }
+
+            results.push({
+              usn,
+              name,
+              status: "updated",
+            });
+            successCount++;
+            continue;
+          }
+
+          // Create a new user account for the mentee
+          const user = await storage.createUser({
+            username: usn, // Use USN as username
+            password: await hashPassword(usn), // Initially set password to USN
+            name,
+            email: email || undefined,
+            role: UserRole.MENTEE,
+          });
+
+          // Create a new mentee record
+          const mentee = await storage.createMentee({
+            userId: user.id,
+            usn,
+            semester,
+            section,
+            batch,
+            mobileNumber,
+            attendance: 0, // Default attendance
+            mentorId: null, // Will be assigned by the mentor assignment algorithm
+          });
+
+          results.push({
+            usn,
+            name,
+            status: "created",
+          });
+          successCount++;
+        } catch (err) {
+          console.error("Error processing mentee row:", err);
+          errorCount++;
+          errors.push({
+            row,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      }
+
+      // After importing all mentees, run the mentor assignment algorithm
+      // to distribute them among mentors
+      try {
+        // This will balance mentees across all mentors, ensuring each mentor has
+        // students from all semesters
+        const assignmentResult = await storage.assignMenteesToMentors();
+        
+        // Add a system notification about the import
+        const { db } = await import("@db");
+        await db.insert(notifications).values({
+          message: `${successCount} mentees imported and automatically assigned to mentors`,
+          targetRoles: [UserRole.ADMIN, UserRole.MENTOR],
+          isRead: false,
+          isUrgent: false,
+          createdAt: new Date(),
+        });
+        
+        res.json({
+          success: true,
+          imported: successCount,
+          errors: errorCount,
+          errorDetails: errors,
+          results,
+          assignment: assignmentResult,
+        });
+      } catch (assignmentErr) {
+        // If assignment fails, the import was still successful
+        res.json({
+          success: true,
+          imported: successCount,
+          errors: errorCount,
+          errorDetails: errors,
+          results,
+          assignmentError: assignmentErr instanceof Error ? assignmentErr.message : "Unknown error",
+        });
+      }
+    } catch (error: any) {
+      await logError(req.user?.id, "upload_mentees_excel", error.message, error.stack);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Upload mentors from Excel file
+  app.post("/api/admin/upload/mentors", authenticateUser, requireAdmin, upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Read the Excel file
+      const workbook = xlsx.read(req.file.buffer);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = xlsx.utils.sheet_to_json(worksheet);
+
+      if (!data || data.length === 0) {
+        return res.status(400).json({ message: "Excel file is empty or has invalid format" });
+      }
+
+      // Process mentor data and create users and mentors
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      for (const row of data) {
+        try {
+          // Extract data from row
+          const employeeId = row.EmployeeID || row.employeeId || row.employeeID || row.ID || row.id;
+          const name = row.Name || row.name;
+          const email = row.Email || row.email;
+          const mobileNumber = row.MobileNumber || row.mobileNumber || row.Mobile || row.mobile;
+          const department = row.Department || row.department;
+          const designation = row.Designation || row.designation;
+
+          if (!employeeId || !name) {
+            throw new Error(`Missing required fields (employeeId, name) for row: ${JSON.stringify(row)}`);
+          }
+
+          // Create a username from name (e.g., "Dr. John Smith" -> "dr.john")
+          const nameParts = name.split(' ');
+          let username = nameParts[0].toLowerCase();
+          if (nameParts.length > 1) {
+            username += '.' + nameParts[1].toLowerCase();
+          }
+          username = username.replace(/[^a-z.]/g, ''); // Remove any non-alphanumeric chars
+
+          // Check if mentor with this username/employeeId already exists
+          const existingUser = await storage.getUserByUsername(username);
+          if (existingUser) {
+            const existingMentor = await storage.getMentorByUserId(existingUser.id);
+            if (existingMentor) {
+              // Update the existing mentor
+              const updatedMentor = await storage.updateMentor(existingMentor.id, {
+                employeeId,
+                department,
+                designation,
+                mobileNumber,
+              });
+
+              // Update the user account
+              await storage.updateUser(existingUser.id, {
+                name,
+                email: email || undefined,
+              });
+
+              results.push({
+                employeeId,
+                name,
+                username,
+                status: "updated",
+              });
+              successCount++;
+              continue;
+            }
+          }
+
+          // Create a new user account for the mentor
+          const user = await storage.createUser({
+            username,
+            password: await hashPassword(username), // Initial password is the username
+            name,
+            email: email || undefined,
+            role: UserRole.MENTOR,
+          });
+
+          // Create a new mentor record
+          const mentor = await storage.createMentor({
+            userId: user.id,
+            employeeId,
+            department,
+            designation,
+            mobileNumber,
+          });
+
+          results.push({
+            employeeId,
+            name,
+            username,
+            status: "created",
+          });
+          successCount++;
+        } catch (err) {
+          console.error("Error processing mentor row:", err);
+          errorCount++;
+          errors.push({
+            row,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      }
+
+      // Add a system notification about the import
+      const { db } = await import("@db");
+      await db.insert(notifications).values({
+        message: `${successCount} mentors imported successfully`,
+        targetRoles: [UserRole.ADMIN],
+        isRead: false,
+        isUrgent: false,
+        createdAt: new Date(),
+      });
+
+      res.json({
+        success: true,
+        imported: successCount,
+        errors: errorCount,
+        errorDetails: errors,
+        results,
+      });
+    } catch (error: any) {
+      await logError(req.user?.id, "upload_mentors_excel", error.message, error.stack);
       res.status(500).json({ message: error.message });
     }
   });
