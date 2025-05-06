@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, foreignKey, json } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -170,6 +170,16 @@ export const messages = pgTable("messages", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").default(false).notNull(),
+  isUrgent: boolean("is_urgent").default(false).notNull(),
+  targetRoles: json("target_roles").notNull().$type<string[]>(), // Roles that should see this notification
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const selfAssessmentsRelations = relations(selfAssessments, ({ one }) => ({
   mentee: one(mentees, {
     fields: [selfAssessments.menteeId],
@@ -249,6 +259,15 @@ export const insertMessageSchema = createInsertSchema(messages, {
 });
 export const selectMessageSchema = createSelectSchema(messages);
 
+export const insertNotificationSchema = createInsertSchema(notifications, {
+  message: (schema) => schema.min(5, "Notification message must be at least 5 characters"),
+  targetRoles: (schema) => schema.refine(
+    (val) => Array.isArray(val) && val.length > 0,
+    { message: "Target roles must be a non-empty array" }
+  ),
+});
+export const selectNotificationSchema = createSelectSchema(notifications);
+
 // Type exports for use in the application
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = z.infer<typeof selectUserSchema>;
@@ -273,3 +292,6 @@ export type SelfAssessment = z.infer<typeof selectSelfAssessmentSchema>;
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = z.infer<typeof selectMessageSchema>;
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = z.infer<typeof selectNotificationSchema>;

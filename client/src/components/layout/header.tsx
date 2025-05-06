@@ -1,10 +1,22 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Bell, ChevronDown, Menu, X } from "lucide-react";
+import { Bell, ChevronDown, Loader2, Menu, X } from "lucide-react";
+import { UserRole } from "@shared/schema";
+
+// Type for notifications
+type Notification = {
+  id: number;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+  targetRoles: string[];
+  isUrgent?: boolean;
+};
 
 export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => void, sidebarOpen?: boolean }) {
   const { user, logoutMutation } = useAuth();
@@ -12,7 +24,24 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
   const [profileOpen, setProfileOpen] = useState(false);
   const [location, setLocation] = useLocation();
 
+  // Fetch notifications
+  const { data: notifications, isLoading: loadingNotifications } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications"],
+    enabled: !!user,
+    // If API not implemented yet, default to empty array
+    // This is a temporary fallback for development
+    placeholderData: []
+  });
+
   if (!user) return null;
+
+  // Filter notifications based on user role
+  const userRole = user.role;
+  const filteredNotifications = notifications?.filter(notification => 
+    notification.targetRoles.includes(userRole) || notification.targetRoles.includes('all')
+  ) || [];
+  
+  const unreadCount = filteredNotifications.filter(notification => !notification.isRead).length;
 
   const userInitials = user.name
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase()
@@ -42,7 +71,11 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative mr-2">
                   <Bell className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-accent"></span>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
@@ -50,17 +83,35 @@ export function Header({ onMenuToggle, sidebarOpen }: { onMenuToggle?: () => voi
                   <h3 className="text-sm font-semibold">Notifications</h3>
                 </div>
                 <div className="max-h-64 overflow-y-auto no-scrollbar">
-                  <div className="px-4 py-3 hover:bg-neutral-50 border-l-4 border-accent">
-                    <p className="text-sm text-neutral-500">5 students have attendance below 85%</p>
-                    <p className="text-xs text-neutral-400 mt-1">2 hours ago</p>
-                  </div>
-                  <div className="px-4 py-3 hover:bg-neutral-50">
-                    <p className="text-sm text-neutral-500">New student data uploaded successfully</p>
-                    <p className="text-xs text-neutral-400 mt-1">Yesterday</p>
-                  </div>
+                  {loadingNotifications ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    </div>
+                  ) : filteredNotifications.length === 0 ? (
+                    <div className="px-4 py-3 text-center text-muted-foreground text-sm">
+                      No notifications
+                    </div>
+                  ) : (
+                    filteredNotifications.map(notification => (
+                      <div 
+                        key={notification.id}
+                        className={`px-4 py-3 hover:bg-neutral-50 ${notification.isUrgent ? 'border-l-4 border-accent' : ''} ${
+                          notification.isRead ? 'opacity-70' : 'font-medium'
+                        }`}
+                      >
+                        <p className="text-sm text-neutral-500">{notification.message}</p>
+                        <p className="text-xs text-neutral-400 mt-1">
+                          {new Date(notification.timestamp).toLocaleString(undefined, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short'
+                          })}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <div className="px-4 py-2 border-t border-neutral-100">
-                  <Link href="#notifications" className="text-xs text-primary hover:text-primary/80">
+                  <Link href="/notifications" className="text-xs text-primary hover:text-primary/80">
                     View all notifications
                   </Link>
                 </div>

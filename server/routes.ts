@@ -13,9 +13,11 @@ import {
   subjects,
   selfAssessments,
   messages,
+  notifications,
   UserRole,
   insertSelfAssessmentSchema,
   insertMessageSchema,
+  insertNotificationSchema,
 } from "@shared/schema";
 import * as XLSX from 'xlsx';
 
