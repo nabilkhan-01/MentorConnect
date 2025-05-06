@@ -975,7 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { 
         academicGoals, careerAspirations, strengths, areasToImprove, 
         studyHoursPerDay, stressLevel, academicConfidence, challenges, supportNeeded 
-      } = schema.insertSelfAssessmentSchema.parse({
+      } = insertSelfAssessmentSchema.parse({
         ...req.body,
         menteeId: menteeRecord.id,
       });
@@ -1016,7 +1016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/messages", authenticateUser, async (req, res) => {
     try {
       // Validate request body
-      const { receiverId, content } = schema.insertMessageSchema.parse({
+      const { receiverId, content } = insertMessageSchema.parse({
         ...req.body,
         senderId: req.user.id,
       });
