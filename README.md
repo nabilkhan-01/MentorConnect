@@ -66,7 +66,7 @@ At minimum you’ll need to set env vars: `DATABASE_URL`, `SESSION_SECRET`, `NOD
 4) Set env vars on Render:
 	- `DATABASE_URL` = (Neon/Supabase connection string)
 	- `SESSION_SECRET` = long random string
-	- `NODE_ENV` = `production`
+	- `NPM_CONFIG_PRODUCTION` = `false` (ensures devDependencies like Vite are installed during build)
 	- `DEMO_SEED_RESET` = `1`
 5) Run once (Render shell) to create tables + seed demo data:
 	- `npm run db:push`

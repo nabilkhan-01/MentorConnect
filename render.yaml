@@ -7,8 +7,8 @@ services:
     healthCheckPath: /
     autoDeploy: true
     envVars:
-      - key: NODE_ENV
-        value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
       - key: DATABASE_URL
         sync: false
       - key: SESSION_SECRET
