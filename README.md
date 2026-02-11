@@ -45,9 +45,9 @@ Choose one:
 All seeded records are fake and are included only for demonstration (no real student data).
 
 Demo users created by seed:
-- Admin: `admin` / `admin123` (or `DEMO_ADMIN_PASSWORD`)
-- Mentors: `mentor`, `mentor2`, `mentor3`, `mentor4`, `mentor5` / `mentor123` (or `DEMO_MENTOR_PASSWORD`)
-- Mentees: `mentee`, `mentee02` … `mentee20` / `mentee123` (or `DEMO_MENTEE_PASSWORD`)
+- Admin: `admin` / `admin123` 
+- Mentors: `mentor`, `mentor2`, `mentor3`, `mentor4`, `mentor5` / `mentor123`
+- Mentees: `mentee`, `mentee02` … `mentee20` / `mentee123` 
 
 5) Run in dev
 
