@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import MentorForm from "@/components/mentor/mentor-form";
 import MentorTable from "@/components/mentor/mentor-table";
+import MentorMenteesDialog from "@/components/mentor/mentor-mentees-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +29,7 @@ export default function AdminMentors() {
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewMenteesDialogOpen, setIsViewMenteesDialogOpen] = useState(false);
   const [selectedMentor, setSelectedMentor] = useState<MentorWithDetails | null>(null);
   
   // Fetch mentors
@@ -121,6 +123,11 @@ export default function AdminMentors() {
     setSelectedMentor(mentor);
     setIsEditDialogOpen(true);
   };
+
+  const openViewMenteesDialog = (mentor: MentorWithDetails) => {
+    setSelectedMentor(mentor);
+    setIsViewMenteesDialogOpen(true);
+  };
   
   const handleExportData = () => {
     if (!mentors || mentors.length === 0) {
@@ -187,12 +194,7 @@ export default function AdminMentors() {
         mentors={mentors || []}
         onEdit={openEditDialog}
         onDelete={handleDeleteMentor}
-        onView={(mentor) => {
-          toast({
-            title: "View Mentor",
-            description: `Viewing ${mentor.name || 'mentor'}'s details`,
-          });
-        }}
+        onView={openViewMenteesDialog}
         isLoading={isLoading}
       />
       
@@ -232,6 +234,13 @@ export default function AdminMentors() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* View Mentees Dialog */}
+      <MentorMenteesDialog
+        isOpen={isViewMenteesDialogOpen}
+        onClose={() => setIsViewMenteesDialogOpen(false)}
+        mentor={selectedMentor}
+      />
     </DashboardLayout>
   );
 }

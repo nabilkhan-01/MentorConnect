@@ -2,29 +2,41 @@ import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import ExcelUpload from "@/components/excel/excel-upload";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowDown, ArrowUp, BarChart3, Download, FileText, PersonStanding, Users, UserRound, UsersRound, CircleAlert } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Download, FileText, PersonStanding, Users, UserRound, UsersRound, CircleAlert, User, Phone, Mail, Calendar, BookOpen, Trash2 } from "lucide-react";
 import { useState } from "react";
 import * as XLSX from 'xlsx';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 type DashboardStats = {
   totalStudents: number;
   totalMentors: number;
   avgMenteesPerMentor: number;
   atRiskStudents: number;
-  studentGrowth: number;
-  mentorGrowth: number;
 };
 
 type AtRiskStudent = {
   id: number;
-  name: string;
+  userId: number;
   usn: string;
-  attendance: number;
-  mentorName: string;
+  mentorId?: number;
+  semester: number;
+  section: string;
+  mobileNumber?: string;
+  parentMobileNumber?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  name?: string;
+  email?: string;
+  attendance?: number;
+  mentorName?: string;
 };
 
 type Activity = {
@@ -37,6 +49,15 @@ type Activity = {
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedStudent, setSelectedStudent] = useState<AtRiskStudent | null>(null);
+  const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
+
+  // Handle viewing student details
+  const handleViewStudent = (student: AtRiskStudent) => {
+    setSelectedStudent(student);
+    setIsStudentDetailsOpen(true);
+  };
   
   // Fetch dashboard stats
   const { data: stats, isLoading: isStatsLoading } = useQuery<DashboardStats>({
@@ -47,25 +68,52 @@ export default function AdminDashboard() {
   const { data: atRiskStudents, isLoading: isAtRiskLoading } = useQuery<AtRiskStudent[]>({
     queryKey: ["/api/admin/at-risk-students"],
   });
+
+  // Cleanup old group messages mutation
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/group-messages/cleanup");
+      if (!response.ok) {
+        throw new Error("Failed to cleanup messages");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Cleanup successful",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Cleanup failed",
+        description: error.message || "Failed to cleanup old messages",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Fetch recent activities
-  const { data: activities, isLoading: isActivitiesLoading } = useQuery<Activity[]>({
+  const { data: activitiesData, isLoading: isActivitiesLoading } = useQuery<Activity[]>({
     queryKey: ["/api/admin/activities"],
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache the data (TanStack Query v5)
   });
 
+  const activities: Activity[] = Array.isArray(activitiesData) ? activitiesData : [];
+
   // Handle Excel upload
-  const handleExcelUpload = async (file: File, assignmentMethod: string) => {
+  const handleExcelUpload = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('assignmentMethod', assignmentMethod);
-    
+
     try {
       await fetch('/api/admin/upload-students', {
         method: 'POST',
         body: formData,
         credentials: 'include',
       });
-      
+
       toast({
         title: "Upload successful",
         description: "Student data has been uploaded and assigned successfully.",
@@ -178,12 +226,10 @@ export default function AdminDashboard() {
       {/* Dashboard Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Total Students Card */}
-        <StatCard 
+        <StatCard
           icon={<Users className="h-5 w-5" />}
           title="Total Students"
           value={isStatsLoading ? "Loading..." : stats?.totalStudents.toString() || "0"}
-          change={isStatsLoading ? undefined : stats?.studentGrowth || 0}
-          changeLabel="vs previous semester"
           iconColor="bg-primary-100 text-primary"
         />
         
@@ -192,8 +238,6 @@ export default function AdminDashboard() {
           icon={<UsersRound className="h-5 w-5" />}
           title="Total Mentors"
           value={isStatsLoading ? "Loading..." : stats?.totalMentors.toString() || "0"}
-          change={isStatsLoading ? undefined : stats?.mentorGrowth || 0}
-          changeLabel="vs previous semester"
           iconColor="bg-secondary-100 text-secondary"
         />
         
@@ -202,7 +246,6 @@ export default function AdminDashboard() {
           icon={<UserRound className="h-5 w-5" />}
           title="Avg. Mentees/Mentor"
           value={isStatsLoading ? "Loading..." : (stats?.avgMenteesPerMentor.toFixed(1) || "0")}
-          note="Ideal range: 10-15"
           iconColor="bg-primary-100 text-primary"
         />
         
@@ -211,11 +254,35 @@ export default function AdminDashboard() {
           icon={<CircleAlert className="h-5 w-5" />}
           title="At-Risk Students"
           value={isStatsLoading ? "Loading..." : stats?.atRiskStudents.toString() || "0"}
-          change={12.8}
-          changeLabel="vs previous semester"
-          iconColor="bg-accent bg-opacity-20 text-accent"
+          iconColor="bg-red-100 text-red-600"
           negative
         />
+      </div>
+
+      {/* Admin Actions */}
+      <div className="mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground">Message Cleanup</h3>
+                <p className="text-sm text-muted-foreground">
+                  Delete group chat messages older than 1 month
+                </p>
+              </div>
+              <Button
+                onClick={() => cleanupMutation.mutate()}
+                disabled={cleanupMutation.isPending}
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {cleanupMutation.isPending ? "Cleaning..." : "Cleanup Messages"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       {/* At-Risk Students & Recent Activities Sections */}
@@ -223,8 +290,8 @@ export default function AdminDashboard() {
         {/* At-Risk Students Section */}
         <div className="lg:col-span-2">
           <Card>
-            <div className="px-4 py-3 border-b border-neutral-100 flex justify-between items-center">
-              <h2 className="font-semibold text-neutral-800">At-Risk Students</h2>
+            <div className="px-4 py-3 border-b border-border flex justify-between items-center">
+              <h2 className="font-semibold text-foreground">At-Risk Students</h2>
               <Button variant="link" size="sm" className="text-primary" onClick={() => window.location.href = "/admin/students"}>View All</Button>
             </div>
             <div className="overflow-x-auto">
@@ -250,17 +317,24 @@ export default function AdminDashboard() {
                     </TableRow>
                   ) : atRiskStudents && atRiskStudents.length > 0 ? (
                     atRiskStudents.slice(0, 5).map((student) => (
-                      <TableRow key={student.id} className="hover:bg-neutral-50">
+                      <TableRow key={student.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.usn}</TableCell>
                         <TableCell>
                           <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                            {student.attendance.toFixed(1)}%
+                            {(student.attendance || 0).toFixed(1)}%
                           </span>
                         </TableCell>
-                        <TableCell>{student.mentorName}</TableCell>
+                        <TableCell>{student.mentorName || "Not assigned"}</TableCell>
                         <TableCell>
-                          <Button variant="link" size="sm" className="text-primary p-0">View</Button>
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="text-primary p-0"
+                            onClick={() => handleViewStudent(student)}
+                          >
+                            View
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -275,7 +349,7 @@ export default function AdminDashboard() {
               </Table>
             </div>
             {atRiskStudents && atRiskStudents.length > 0 && (
-              <div className="px-4 py-3 bg-neutral-50 border-t border-neutral-100 text-xs text-neutral-500">
+              <div className="px-4 py-3 bg-muted border-t border-border text-xs text-muted-foreground">
                 Showing {Math.min(5, atRiskStudents.length)} of {atRiskStudents.length} at-risk students
               </div>
             )}
@@ -285,26 +359,28 @@ export default function AdminDashboard() {
         {/* Recent Activities */}
         <div className="lg:col-span-1">
           <Card className="h-full">
-            <div className="px-4 py-3 border-b border-neutral-100">
-              <h2 className="font-semibold text-neutral-800">Recent Activities</h2>
+            <div className="px-4 py-3 border-b border-border">
+              <h2 className="font-semibold text-foreground">Recent Activities</h2>
             </div>
             <div className="overflow-y-auto max-h-[350px]">
-              <ul className="divide-y divide-neutral-100">
+              <ul className="divide-y divide-border">
                 {isActivitiesLoading ? (
                   <div className="flex flex-col items-center justify-center py-6">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
                     <p className="text-sm text-muted-foreground">Loading activities...</p>
                   </div>
                 ) : activities && activities.length > 0 ? (
-                  activities.map((activity) => (
+                  activities
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((activity) => (
                     <li key={activity.id} className="px-4 py-3">
                       <div className="flex">
                         <div className="flex-shrink-0 mr-3">
                           <ActivityIcon type={activity.type} />
                         </div>
                         <div>
-                          <p className="text-sm text-neutral-800">{activity.description}</p>
-                          <p className="text-xs text-neutral-500 mt-1">{formatDateTime(activity.timestamp)}</p>
+                          <p className="text-sm text-foreground">{activity.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatDateTime(activity.timestamp)}</p>
                         </div>
                       </div>
                     </li>
@@ -316,69 +392,182 @@ export default function AdminDashboard() {
                 )}
               </ul>
             </div>
-            <div className="px-4 py-3 border-t border-neutral-100">
-              <Button variant="link" size="sm" className="text-primary p-0" onClick={() => window.location.href = "/admin/error-logs"}>View All Activities</Button>
-            </div>
           </Card>
         </div>
       </div>
-      
-      {/* Mentor Distribution & System Stats Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Mentor Distribution Card */}
-        <Card className="lg:col-span-2">
-          <div className="px-4 py-3 border-b border-neutral-100">
-            <h2 className="font-semibold text-neutral-800">Mentor-Mentee Distribution</h2>
-          </div>
-          <div className="p-4">
-            <div className="h-64 flex items-center justify-center bg-neutral-50 rounded">
-              <div className="text-center">
-                <BarChart3 className="mx-auto h-12 w-12 text-neutral-300" />
-                <p className="text-neutral-500 text-sm mt-2">Mentor-Mentee Distribution Chart</p>
-              </div>
-            </div>
-          </div>
-        </Card>
 
-        {/* System Status Card */}
-        <Card>
-          <div className="px-4 py-3 border-b border-neutral-100">
-            <h2 className="font-semibold text-neutral-800">System Status</h2>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-neutral-600">Last Backup</div>
-                <div className="text-sm font-medium text-neutral-800">Today, 03:00 AM</div>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-neutral-600">Error Logs</div>
-                <div className="flex items-center">
-                  <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-800 bg-red-100 rounded-full mr-2">3</span>
-                  <Button variant="link" size="sm" className="text-primary p-0 h-auto">View</Button>
+      {/* Student Details Dialog */}
+      <Dialog open={isStudentDetailsOpen} onOpenChange={setIsStudentDetailsOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Student Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information about the selected student
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedStudent && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Basic Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Full Name</label>
+                    <p className="text-sm font-medium">{selectedStudent.name || "Not provided"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">USN</label>
+                    <p className="text-sm font-medium">{selectedStudent.usn}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Email</label>
+                    <p className="text-sm font-medium">{selectedStudent.email || "Not provided"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Status</label>
+                    <Badge variant={selectedStudent.isActive ? "default" : "secondary"}>
+                      {selectedStudent.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-neutral-600">Server Status</div>
-                <div className="flex items-center">
-                  <span className="inline-block h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                  <span className="text-sm font-medium text-green-600">Operational</span>
+
+              <Separator />
+
+              {/* Academic Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Academic Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Current Semester</label>
+                    <p className="text-sm font-medium">Semester {selectedStudent.semester}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Section</label>
+                    <p className="text-sm font-medium">{selectedStudent.section}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Current Attendance</label>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline" 
+                        className={`${(selectedStudent.attendance || 0) < 85 
+                          ? 'bg-red-50 text-red-700 border-red-200' 
+                          : 'bg-green-50 text-green-700 border-green-200'}`}
+                      >
+                        {(selectedStudent.attendance || 0).toFixed(1)}%
+                      </Badge>
+                      {(selectedStudent.attendance || 0) < 85 && (
+                        <Badge variant="destructive" className="text-xs">
+                          At Risk
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Assigned Mentor</label>
+                    <p className="text-sm font-medium">{selectedStudent.mentorName || "Not assigned"}</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-neutral-600">Database Usage</div>
-                <div className="text-sm font-medium text-neutral-800">52% (13.2 GB)</div>
+
+              <Separator />
+
+              {/* Contact Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Contact Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Student Mobile</label>
+                    <p className="text-sm font-medium">{selectedStudent.mobileNumber || "Not provided"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Parent Mobile</label>
+                    <p className="text-sm font-medium">{selectedStudent.parentMobileNumber || "Not provided"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Account Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Account Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Account Created</label>
+                    <p className="text-sm font-medium">{selectedStudent.createdAt ? new Date(selectedStudent.createdAt).toLocaleDateString() : "Not available"}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                    <p className="text-sm font-medium">{selectedStudent.updatedAt ? new Date(selectedStudent.updatedAt).toLocaleDateString() : "Not available"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Risk Assessment */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <CircleAlert className="h-4 w-4" />
+                  Risk Assessment
+                </h3>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <CircleAlert className="h-5 w-5 text-red-500 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-red-800">Attendance Below Threshold</h4>
+                      <p className="text-sm text-red-700 mt-1">
+                        This student's attendance of {(selectedStudent.attendance || 0).toFixed(1)}% is below the required 85% threshold. 
+                        Immediate attention and intervention may be necessary to prevent academic complications.
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs text-red-600">
+                          <strong>Recommended Actions:</strong>
+                        </p>
+                        <ul className="text-xs text-red-600 space-y-1 ml-4">
+                          <li>• Contact the student to discuss attendance issues</li>
+                          <li>• Schedule a meeting with the assigned mentor</li>
+                          <li>• Review academic performance and provide support</li>
+                          <li>• Consider additional academic resources or counseling</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsStudentDetailsOpen(false)}
+                >
+                  Close
+                </Button>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-neutral-100">
-              <Button variant="link" size="sm" className="text-primary p-0 flex items-center">
-                <FileText className="h-4 w-4 mr-1" />
-                System Settings
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </DashboardLayout>
   );
 }
@@ -404,8 +593,8 @@ function StatCard({ icon, title, value, change, changeLabel, note, iconColor, ne
           {icon}
         </div>
         <div>
-          <p className="text-sm font-medium text-neutral-500">{title}</p>
-          <p className="text-2xl font-bold text-neutral-800">{value}</p>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold text-foreground">{value}</p>
         </div>
       </div>
       <div className="mt-4 flex items-center">
@@ -419,10 +608,10 @@ function StatCard({ icon, title, value, change, changeLabel, note, iconColor, ne
               )}
               {Math.abs(change).toFixed(1)}%
             </span>
-            {changeLabel && <span className="text-xs text-neutral-500 ml-2">{changeLabel}</span>}
+            {changeLabel && <span className="text-xs text-muted-foreground ml-2">{changeLabel}</span>}
           </>
         )}
-        {note && <span className="text-xs text-neutral-500">{note}</span>}
+        {note && <span className="text-xs text-muted-foreground">{note}</span>}
       </div>
     </Card>
   );
@@ -430,14 +619,15 @@ function StatCard({ icon, title, value, change, changeLabel, note, iconColor, ne
 
 function ActivityIcon({ type }: { type: string }) {
   const iconMap: Record<string, React.ReactNode> = {
-    'upload': <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center"><FileText className="h-4 w-4 text-primary" /></div>,
-    'add': <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center"><PersonStanding className="h-4 w-4 text-green-600" /></div>,
-    'warning': <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center"><CircleAlert className="h-4 w-4 text-amber-600" /></div>,
-    'transfer': <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center"><ArrowUp className="h-4 w-4 text-primary" /></div>,
-    'delete': <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center"><FileText className="h-4 w-4 text-neutral-600" /></div>,
+    'upload': <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><FileText className="h-4 w-4 text-primary" /></div>,
+    'add': <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center"><PersonStanding className="h-4 w-4 text-green-600" /></div>,
+    'warning': <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center"><CircleAlert className="h-4 w-4 text-amber-600" /></div>,
+    'info': <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center"><FileText className="h-4 w-4 text-blue-600" /></div>,
+    'transfer': <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center"><ArrowUp className="h-4 w-4 text-primary" /></div>,
+    'delete': <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center"><FileText className="h-4 w-4 text-muted-foreground" /></div>,
   };
   
-  return iconMap[type] || <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center"><FileText className="h-4 w-4 text-neutral-600" /></div>;
+  return iconMap[type] || <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center"><FileText className="h-4 w-4 text-muted-foreground" /></div>;
 }
 
 function formatDateTime(dateString: string): string {

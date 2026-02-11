@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import ExcelUpload from "@/components/excel/excel-upload";
 import { Button } from "@/components/ui/button";
@@ -6,8 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Users, UserRound, CircleAlert } from "lucide-react";
+import { StudentDetailsDialog } from "@/components/student/student-details-dialog";
 
 type DashboardStats = {
+  mentorId: number;
   totalMentees: number;
   atRiskMentees: number;
   averageAttendance: number;
@@ -25,6 +28,9 @@ type AtRiskMentee = {
 
 export default function MentorDashboard() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedStudent, setSelectedStudent] = useState<AtRiskMentee | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   
   // Fetch dashboard stats
   const { data: stats, isLoading: isStatsLoading } = useQuery<DashboardStats>({
@@ -48,6 +54,15 @@ export default function MentorDashboard() {
         credentials: 'include',
       });
       
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/at-risk-mentees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
+      
       toast({
         title: "Upload successful",
         description: "Mentee data has been uploaded successfully.",
@@ -59,6 +74,11 @@ export default function MentorDashboard() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleViewStudent = (student: AtRiskMentee) => {
+    setSelectedStudent(student);
+    setIsDetailsDialogOpen(true);
   };
 
   return (
@@ -88,7 +108,7 @@ export default function MentorDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-neutral-500">Total Mentees</p>
-              <p className="text-2xl font-bold text-neutral-800">
+              <p className="text-2xl font-bold text-foreground">
                 {isStatsLoading ? "Loading..." : stats?.totalMentees}
               </p>
             </div>
@@ -98,12 +118,12 @@ export default function MentorDashboard() {
         {/* At Risk Mentees Card */}
         <Card className="p-4">
           <div className="flex items-center">
-            <div className="rounded-full bg-accent bg-opacity-20 p-3 mr-4">
-              <CircleAlert className="h-5 w-5 text-accent" />
+            <div className="rounded-full bg-red-100 dark:bg-red-900/30 p-3 mr-4">
+              <CircleAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
               <p className="text-sm font-medium text-neutral-500">At-Risk Mentees</p>
-              <p className="text-2xl font-bold text-neutral-800">
+              <p className="text-2xl font-bold text-foreground">
                 {isStatsLoading ? "Loading..." : stats?.atRiskMentees}
               </p>
             </div>
@@ -118,10 +138,12 @@ export default function MentorDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-neutral-500">Average Attendance</p>
-              <p className="text-2xl font-bold text-neutral-800">
-                {isStatsLoading 
-                  ? "Loading..." 
-                  : `${stats?.averageAttendance.toFixed(1)}%`}
+              <p className="text-2xl font-bold text-foreground">
+                {isStatsLoading
+                  ? "Loading..."
+                  : stats?.averageAttendance != null
+                    ? `${stats.averageAttendance.toFixed(1)}%`
+                    : "N/A"}
               </p>
             </div>
           </div>
@@ -132,10 +154,10 @@ export default function MentorDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* At-Risk Mentees Section */}
         <Card className="lg:col-span-2">
-          <div className="px-4 py-3 border-b border-neutral-100 flex justify-between items-center">
-            <h2 className="font-semibold text-neutral-800">At-Risk Mentees</h2>
-            <Button variant="link" size="sm" href="/mentor/at-risk" className="text-primary">
-              View All
+          <div className="px-4 py-3 border-b border-border flex justify-between items-center">
+            <h2 className="font-semibold text-foreground">At-Risk Mentees</h2>
+            <Button asChild variant="link" size="sm" className="text-primary">
+              <a href="/mentor/at-risk">View All</a>
             </Button>
           </div>
           <div className="overflow-x-auto">
@@ -161,7 +183,7 @@ export default function MentorDashboard() {
                   </TableRow>
                 ) : atRiskMentees && atRiskMentees.length > 0 ? (
                   atRiskMentees.slice(0, 5).map((mentee) => (
-                    <TableRow key={mentee.id} className="hover:bg-neutral-50">
+                    <TableRow key={mentee.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium">{mentee.name}</TableCell>
                       <TableCell>{mentee.usn}</TableCell>
                       <TableCell>{mentee.semester}</TableCell>
@@ -171,7 +193,12 @@ export default function MentorDashboard() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Button variant="link" size="sm" className="text-primary p-0">
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          className="text-primary p-0"
+                          onClick={() => handleViewStudent(mentee)}
+                        >
                           View
                         </Button>
                       </TableCell>
@@ -191,8 +218,8 @@ export default function MentorDashboard() {
 
         {/* Semester Distribution */}
         <Card className="lg:col-span-1">
-          <div className="px-4 py-3 border-b border-neutral-100">
-            <h2 className="font-semibold text-neutral-800">Semester Distribution</h2>
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="font-semibold text-foreground">Semester Distribution</h2>
           </div>
           <div className="p-4">
             {isStatsLoading ? (
@@ -232,6 +259,13 @@ export default function MentorDashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Student Details Dialog */}
+      <StudentDetailsDialog
+        student={selectedStudent}
+        isOpen={isDetailsDialogOpen}
+        onClose={() => setIsDetailsDialogOpen(false)}
+      />
     </DashboardLayout>
   );
 }

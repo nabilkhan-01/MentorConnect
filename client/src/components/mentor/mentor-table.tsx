@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, Pencil, Trash2, Search, BadgeCheck, BadgeX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +73,9 @@ export function MentorTable({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
-            placeholder="Search by name, email, department, or specialization..." 
+            id="search-mentors"
+            name="search-mentors"
+            placeholder="Search by name, email, department" 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -98,7 +100,7 @@ export function MentorTable({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10">
+                  <TableCell colSpan={8} className="text-center py-10">
                     <div className="flex flex-col items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
                       <p className="text-muted-foreground">Loading mentors...</p>

@@ -52,6 +52,8 @@ export default function AdminErrorLogs() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
+            id="search-error-logs"
+            name="search-error-logs"
             placeholder="Search by action, error message, or user..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -92,21 +94,21 @@ export default function AdminErrorLogs() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-neutral-100">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-muted text-foreground">
                         {log.action}
                       </span>
                     </TableCell>
                     <TableCell className="max-w-md truncate">
                       <div className="flex items-center">
                         <AlertTriangle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
-                        <span className="truncate">{log.errorMessage}</span>
+                        <span className="truncate text-foreground">{log.errorMessage}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       {log.user ? (
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{log.user.name || log.user.username}</span>
+                          <span className="text-foreground">{log.user.name || log.user.username}</span>
                         </div>
                       ) : (
                         <div className="flex items-center">
@@ -178,7 +180,7 @@ export default function AdminErrorLogs() {
               
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-1">Error Message</h3>
-                <div className="bg-red-50 border border-red-100 rounded-md p-3 text-sm text-red-800">
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm text-red-800 dark:text-red-200">
                   {selectedLog.errorMessage}
                 </div>
               </div>
@@ -186,7 +188,7 @@ export default function AdminErrorLogs() {
               {selectedLog.stackTrace && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Stack Trace</h3>
-                  <pre className="bg-neutral-50 border border-neutral-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                  <pre className="bg-muted border border-border rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono text-foreground">
                     {selectedLog.stackTrace}
                   </pre>
                 </div>

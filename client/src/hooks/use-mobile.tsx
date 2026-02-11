@@ -19,3 +19,6 @@ export function useMobile() {
 
   return !!isMobile;
 }
+
+// Backward-compatible alias (some components expect this name)
+export const useIsMobile = useMobile;

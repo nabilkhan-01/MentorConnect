@@ -114,7 +114,7 @@ async function assignMenteesToMentors() {
           await db.insert(schema.academicRecords).values({
             menteeId: menteeRecord[0].id,
             subjectId: subject.id,
-            cieMarks,
+            cie1Marks: cieMarks,
             assignmentMarks,
             totalMarks,
             attendance,

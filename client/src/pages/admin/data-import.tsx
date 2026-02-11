@@ -7,7 +7,6 @@ import ExcelUpload from "@/components/admin/excel-upload";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Download, Users, UserPlus, Shuffle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function AdminDataImportPage() {
   const { toast } = useToast();
@@ -16,25 +15,31 @@ export default function AdminDataImportPage() {
 
   // Handle successful mentor upload
   const handleMentorUploadSuccess = () => {
-    // Invalidate relevant queries to refresh data
+    // Invalidate all related queries to refresh data
     queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
     queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
   };
 
   // Handle successful mentee upload
   const handleMenteeUploadSuccess = () => {
-    // Invalidate relevant queries to refresh data
+    // Invalidate all related queries to refresh data
     queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
     queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     queryClient.invalidateQueries({ queryKey: ["/api/admin/at-risk-students"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
   };
 
   // Download sample templates
   const handleDownloadMentorTemplate = () => {
     // Create CSV content for mentor template
-    const csvContent = "Name,Email,EmployeeID,Department,Designation,MobileNumber\nDr. John Smith,john.smith@example.com,EMP001,Computer Science,Professor,9876543210\nDr. Jane Doe,jane.doe@example.com,EMP002,Electronics,Associate Professor,9876543211";
+    const csvContent = "Name,Email,Department,Specialization,MobileNumber\nDr John Smith,john@example.edu,CSE,Professor,9876543210\nDr Jane Doe,jane@example.edu,CSE,Associate Professor,9876543211";
     
     // Create and trigger download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -50,7 +55,9 @@ export default function AdminDataImportPage() {
 
   const handleDownloadMenteeTemplate = () => {
     // Create CSV content for mentee template
-    const csvContent = "Name,Email,USN,Semester,Section,Batch,MobileNumber\nJohn Student,john.student@example.com,1SI19CS001,3,A,2019,9876543212\nJane Student,jane.student@example.com,1SI19CS002,3,B,2019,9876543213";
+    const csvContent = "Name,Email,USN,Semester,Section,MobileNumber,MentorUsername\n" +
+      "Alex,alex@example.edu,4SF23CS123,5,B,9876543212,mentor\n" +
+      "Sam,sam@example.edu,4SF23CS042,5,B,9876543213,mentor";
     
     // Create and trigger download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -81,11 +88,13 @@ export default function AdminDataImportPage() {
           description: result.message,
         });
         
-        // Invalidate relevant queries
+        // Invalidate all related queries
         queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
         queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
       } else {
         toast({
           title: "Reassignment error",
@@ -170,9 +179,10 @@ export default function AdminDataImportPage() {
                       </CardHeader>
                       <CardContent>
                         <ul className="list-disc pl-5 space-y-2 text-sm">
-                          <li>Prepare your Excel file with the following columns: <strong>Name</strong>, <strong>Email</strong>, <strong>USN</strong>, <strong>Semester</strong>, <strong>Section</strong>, <strong>Batch</strong>, <strong>MobileNumber</strong>.</li>
+                          <li>Prepare your Excel file with the following columns: <strong>Name</strong>, <strong>Email</strong>, <strong>USN</strong>, <strong>Semester</strong>, <strong>Section</strong>, <strong>Batch</strong>, <strong>MobileNumber</strong>, <strong>MentorUsername</strong> (optional).</li>
                           <li>The <strong>USN</strong> and <strong>Name</strong> fields are required.</li>
-                          <li>Mentees will be automatically assigned to mentors with balanced distribution across semesters.</li>
+                          <li>If <strong>MentorUsername</strong> is provided, the mentee will be assigned to that mentor. Otherwise, mentees will be automatically assigned with balanced distribution.</li>
+                          <li>Mentor usernames are normalized automatically: spaces become dots and non-alphanumeric characters are removed (e.g., "Dr John Smith" → <code>dr.john</code>).</li>
                           <li>The system will create user accounts with the USN as username and initial password.</li>
                           <li>If a mentee with the same USN already exists, their information will be updated.</li>
                         </ul>
@@ -194,8 +204,9 @@ export default function AdminDataImportPage() {
                       </CardHeader>
                       <CardContent>
                         <ul className="list-disc pl-5 space-y-2 text-sm">
-                          <li>Prepare your Excel file with the following columns: <strong>Name</strong>, <strong>Email</strong>, <strong>EmployeeID</strong>, <strong>Department</strong>, <strong>Designation</strong>, <strong>MobileNumber</strong>.</li>
-                          <li>The <strong>EmployeeID</strong> and <strong>Name</strong> fields are required.</li>
+                          <li>Prepare your Excel file with the following columns: <strong>Name</strong>, <strong>Email</strong>, <strong>Department</strong>, <strong>Specialization</strong>, <strong>MobileNumber</strong>.</li>
+                          <li>The <strong>Name</strong> and <strong>Department</strong> fields are required.</li>
+                          <li><strong>Email</strong>, <strong>Specialization</strong>, and <strong>MobileNumber</strong> are optional.</li>
                           <li>The system will automatically generate a username from the mentor's name (e.g., "Dr. John Smith" becomes "dr.john").</li>
                           <li>The initial password will be set to the username.</li>
                           <li>If a mentor with the same username already exists, their information will be updated.</li>

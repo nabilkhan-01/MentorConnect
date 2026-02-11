@@ -78,22 +78,35 @@
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
     --ring: 236 63% 47%;
+    
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 236 63% 47%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 236 63% 47%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 27.9% 16.9%;
+    --sidebar-ring: 236 63% 47%;
   }
   
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   
   body {
-    @apply font-sans bg-background text-foreground antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .elevated {
-    @apply shadow-sm;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
   }
   
   .elevated-2 {
-    @apply shadow-md;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
   }
   
   .no-scrollbar::-webkit-scrollbar {
@@ -104,4 +117,50 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+/* Force notification text colors */
+.notification-urgent-text {
+  color: #7f1d1d !important;
+}
+
+html.dark .notification-urgent-text,
+.dark .notification-urgent-text,
+[data-theme="dark"] .notification-urgent-text {
+  color: #ffffff !important;
+}
+
+.notification-unread-text {
+  color: #1e3a8a !important;
+}
+
+html.dark .notification-unread-text,
+.dark .notification-unread-text,
+[data-theme="dark"] .notification-unread-text {
+  color: #ffffff !important;
+}
+
+/* Force notification card backgrounds */
+.notification-urgent-card {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
+html.dark .notification-urgent-card,
+.dark .notification-urgent-card,
+[data-theme="dark"] .notification-urgent-card {
+  background-color: #450a0a !important;
+  border-color: #7f1d1d !important;
+}
+
+.notification-unread-card {
+  background-color: #eff6ff !important;
+  border-color: #dbeafe !important;
+}
+
+html.dark .notification-unread-card,
+.dark .notification-unread-card,
+[data-theme="dark"] .notification-unread-card {
+  background-color: #1e3a8a !important;
+  border-color: #1e3a8a !important;
 }

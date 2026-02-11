@@ -10,13 +10,12 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-// Defining the form schema
 const mentorFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email"),
+  email: z.string().email("Please enter a valid email").optional(),
   department: z.string().min(2, "Department must be at least 2 characters"),
   specialization: z.string().optional(),
-  mobileNumber: z.string().min(10, "Mobile number must be at least 10 digits"),
+  mobileNumber: z.string().min(10, "Mobile number must be at least 10 digits").optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -35,23 +34,36 @@ export function MentorForm({
   isSubmitting = false,
   mode = "add",
 }: MentorFormProps) {
-  const { toast } = useToast();
-  
+  // Normalize incoming initial values: convert null to undefined for optional fields
+  const normalizedInitials: Partial<MentorFormValues> = {
+    ...initialValues,
+    email: initialValues?.email ?? undefined,
+    specialization: initialValues?.specialization ?? undefined,
+    mobileNumber: initialValues?.mobileNumber ?? undefined,
+  };
+
   const form = useForm<MentorFormValues>({
     resolver: zodResolver(mentorFormSchema),
     defaultValues: {
       name: "",
-      email: "",
+      email: undefined,
       department: "",
-      specialization: "",
-      mobileNumber: "",
+      specialization: undefined,
+      mobileNumber: undefined,
       isActive: true,
-      ...initialValues
+      ...normalizedInitials
     }
   });
 
+  // Before submit, coerce empty strings to undefined for optional fields
   const handleSubmit = (values: MentorFormValues) => {
-    onSubmit(values);
+    const payload: MentorFormValues = {
+      ...values,
+      email: values.email === "" ? undefined : values.email,
+      specialization: values.specialization === "" ? undefined : values.specialization,
+      mobileNumber: values.mobileNumber === "" ? undefined : values.mobileNumber,
+    };
+    onSubmit(payload);
   };
 
   return (
@@ -79,7 +91,7 @@ export function MentorForm({
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="Enter email" {...field} />
+                  <Input type="email" placeholder="Enter email (optional)" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -113,7 +125,7 @@ export function MentorForm({
               </FormItem>
             )}
           />
-          
+      
           <FormField
             control={form.control}
             name="mobileNumber"
@@ -121,7 +133,7 @@ export function MentorForm({
               <FormItem>
                 <FormLabel>Mobile Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter mobile number" {...field} />
+                  <Input placeholder="Enter mobile number (optional)" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -156,7 +168,7 @@ export function MentorForm({
         
         <div className="flex justify-end gap-3 pt-4">
           <Button type="button" variant="outline" onClick={() => form.reset()}>
-            Cancel
+             Reset
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

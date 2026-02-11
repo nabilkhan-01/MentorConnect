@@ -57,6 +57,23 @@ export default function AuthPage() {
           </CardHeader>
           <CardContent>
             <LoginForm isLoading={loginMutation.isPending} onSubmit={(data) => loginMutation.mutate(data)} />
+
+            <div className="mt-6 rounded-md border p-4 text-sm">
+              <div className="font-medium">Demo logins (seeded)</div>
+              <div className="mt-2 space-y-1 text-muted-foreground">
+                <div>
+                  Admin: <span className="font-mono">admin</span> / <span className="font-mono">admin123</span>
+                </div>
+                <div>
+                  Mentor: <span className="font-mono">mentor</span> / <span className="font-mono">mentor123</span>
+                  <span className="ml-2">(also: <span className="font-mono">mentor2</span>…<span className="font-mono">mentor5</span>)</span>
+                </div>
+                <div>
+                  Mentee: <span className="font-mono">mentee</span> / <span className="font-mono">mentee123</span>
+                  <span className="ml-2">(also: <span className="font-mono">mentee02</span>…<span className="font-mono">mentee20</span>)</span>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

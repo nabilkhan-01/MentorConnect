@@ -18,9 +18,10 @@ const academicRecordSchema = z.object({
     required_error: "Subject is required",
     invalid_type_error: "Subject must be selected",
   }),
-  cieMarks: z.coerce.number().min(0, "CIE marks cannot be negative").max(50, "CIE marks cannot exceed 50"),
-  assignmentMarks: z.coerce.number().min(0, "Assignment marks cannot be negative").max(50, "Assignment marks cannot exceed 50"),
-  totalMarks: z.coerce.number().min(0, "Total marks cannot be negative").max(100, "Total marks cannot exceed 100"),
+  cie1Marks: z.coerce.number().min(0, "CIE 1 marks cannot be negative").max(30, "CIE 1 marks cannot exceed 30").optional(),
+  cie2Marks: z.coerce.number().min(0, "CIE 2 marks cannot be negative").max(30, "CIE 2 marks cannot exceed 30").optional(),
+  cie3Marks: z.coerce.number().min(0, "CIE 3 marks cannot be negative").max(30, "CIE 3 marks cannot exceed 30").optional(),
+  assignmentMarks: z.coerce.number().min(0, "Assignment marks cannot be negative").max(20, "Assignment marks cannot exceed 20"),
   attendance: z.coerce.number().min(0, "Attendance cannot be negative").max(100, "Attendance cannot exceed 100%"),
   semester: z.coerce.number().min(1, "Semester must be at least 1").max(8, "Semester cannot be more than 8"),
   academicYear: z.string().min(4, "Academic year is required"),
@@ -79,27 +80,18 @@ export function AcademicForm({
     resolver: zodResolver(academicRecordSchema),
     defaultValues: {
       subjectId: undefined,
-      cieMarks: 0,
+      cie1Marks: undefined,
+      cie2Marks: undefined,
+      cie3Marks: undefined,
       assignmentMarks: 0,
-      totalMarks: 0,
       attendance: 0,
       semester: mentee.semester || 1,
       academicYear: currentAcademicYear(),
     }
   });
   
-  // Calculate total marks when CIE or assignment marks change
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name === 'cieMarks' || name === 'assignmentMarks') {
-        const cieMarks = Number(value.cieMarks) || 0;
-        const assignmentMarks = Number(value.assignmentMarks) || 0;
-        form.setValue('totalMarks', cieMarks + assignmentMarks);
-      }
-    });
-    
-    return () => subscription.unsubscribe();
-  }, [form]);
+  // Note: Total marks will be calculated on the server side
+  // based on average CIE marks + assignment marks
   
   const handleSubmit = (values: AcademicRecordFormValues) => {
     onSubmit(values);
@@ -235,24 +227,70 @@ export function AcademicForm({
             <Card>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
-                      name="cieMarks"
+                      name="cie1Marks"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>CIE Marks</FormLabel>
+                          <FormLabel>CIE 1 Marks (out of 30)</FormLabel>
                           <div className="flex items-center gap-2">
                             <FormControl>
                               <Input 
                                 type="number" 
                                 {...field} 
                                 min={0}
-                                max={50}
+                                max={30}
                                 step={0.5}
                               />
                             </FormControl>
-                            <span className="text-sm text-muted-foreground">/ 50</span>
+                            <span className="text-sm text-muted-foreground">/ 30</span>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="cie2Marks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CIE 2 Marks (out of 30)</FormLabel>
+                          <div className="flex items-center gap-2">
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                {...field} 
+                                min={0}
+                                max={30}
+                                step={0.5}
+                              />
+                            </FormControl>
+                            <span className="text-sm text-muted-foreground">/ 30</span>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="cie3Marks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CIE 3 Marks (out of 30)</FormLabel>
+                          <div className="flex items-center gap-2">
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                {...field} 
+                                min={0}
+                                max={30}
+                                step={0.5}
+                              />
+                            </FormControl>
+                            <span className="text-sm text-muted-foreground">/ 30</span>
                           </div>
                           <FormMessage />
                         </FormItem>
@@ -264,18 +302,18 @@ export function AcademicForm({
                       name="assignmentMarks"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Assignment Marks</FormLabel>
+                          <FormLabel>Assignment Marks (out of 20)</FormLabel>
                           <div className="flex items-center gap-2">
                             <FormControl>
                               <Input 
                                 type="number" 
                                 {...field}
                                 min={0}
-                                max={50}
+                                max={20}
                                 step={0.5}
                               />
                             </FormControl>
-                            <span className="text-sm text-muted-foreground">/ 50</span>
+                            <span className="text-sm text-muted-foreground">/ 20</span>
                           </div>
                           <FormMessage />
                         </FormItem>
@@ -283,30 +321,12 @@ export function AcademicForm({
                     />
                   </div>
                   
-                  <FormField
-                    control={form.control}
-                    name="totalMarks"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Total Marks</FormLabel>
-                        <div className="flex items-center gap-2">
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              {...field}
-                              readOnly
-                              className="bg-neutral-50"
-                            />
-                          </FormControl>
-                          <span className="text-sm text-muted-foreground">/ 100</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Automatically calculated from CIE and Assignment marks
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Total marks will be automatically calculated on the server as: 
+                      Average of CIE marks + Assignment marks (out of 50)
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -315,7 +335,7 @@ export function AcademicForm({
         
         <div className="flex justify-end gap-3 mt-6">
           <Button type="button" variant="outline" onClick={() => form.reset()}>
-            Cancel
+            Reset
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

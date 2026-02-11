@@ -9,18 +9,40 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { Mentor, Mentee } from "@shared/schema";
+// Use MentorWithDetails type to match backend response
+type MentorWithDetails = {
+  id: number;
+  name?: string;
+  mobileNumber?: string | null;
+  department?: string | null;
+  specialization?: string | null;
+  isActive?: boolean;
+  userId?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 // Defining the form schema
 const studentFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  usn: z.string().min(5, "USN must be at least 5 characters"),
-  email: z.string().email("Please enter a valid email"),
-  mobileNumber: z.string().min(10, "Mobile number must be at least 10 digits"),
-  parentMobileNumber: z.string().min(10, "Parent mobile number must be at least 10 digits"),
-  semester: z.coerce.number().min(1).max(8),
-  section: z.string().min(1, "Section is required"),
+  usn: z
+    .string()
+    .min(10, "USN must be at least 10 characters")
+    .refine((val) => val.startsWith("4SF"), {
+    }),
+  email: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      { message: "Email must be a valid email address" }
+    ),
+  mobileNumber: z.string().optional(),
+  parentMobileNumber: z.string().optional(),
+  semester: z.coerce.number().min(1).max(8).default(1),
+  section: z.string().min(1, "Section is required").optional(),
   mentorId: z.coerce.number().optional(),
 });
 
@@ -31,6 +53,7 @@ type StudentFormProps = {
   initialValues?: Partial<StudentFormValues>;
   isSubmitting?: boolean;
   mode?: "add" | "edit";
+  currentMentorId?: number; // For mentor role - automatically set mentor ID
 };
 
 export function StudentForm({
@@ -38,10 +61,11 @@ export function StudentForm({
   initialValues = {},
   isSubmitting = false,
   mode = "add",
+  currentMentorId,
 }: StudentFormProps) {
   const { toast } = useToast();
   
-  const { data: mentors, isLoading: isMentorsLoading } = useQuery<Mentor[]>({
+  const { data: mentors, isLoading: isMentorsLoading } = useQuery<MentorWithDetails[]>({
     queryKey: ["/api/mentors"],
   });
 
@@ -55,7 +79,7 @@ export function StudentForm({
       parentMobileNumber: "",
       semester: 1,
       section: "",
-      mentorId: undefined,
+      mentorId: currentMentorId || undefined,
       ...initialValues
     }
   });
@@ -188,42 +212,44 @@ export function StudentForm({
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="mentorId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assigned Mentor</FormLabel>
-                    <Select 
-                      value={field.value?.toString() || ""} 
-                      onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a mentor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isMentorsLoading ? (
-                          <SelectItem value="loading">Loading mentors...</SelectItem>
-                        ) : mentors?.length ? (
-                          mentors.map((mentor) => (
-                            <SelectItem key={mentor.id} value={mentor.id.toString()}>
-                              {mentor.user?.name || `Mentor ID: ${mentor.id}`}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="none">No mentors available</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!currentMentorId && (
+                <FormField
+                  control={form.control}
+                  name="mentorId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assigned Mentor</FormLabel>
+                      <Select 
+                        value={field.value?.toString() || ""} 
+                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a mentor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {isMentorsLoading ? (
+                            <SelectItem value="loading">Loading mentors...</SelectItem>
+                          ) : mentors?.length ? (
+                                      mentors.map((mentor) => (
+                                        <SelectItem key={mentor.id} value={mentor.id.toString()}>
+                                          {mentor.name ? mentor.name : `Mentor ID: ${mentor.id}`}
+                                        </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none">No mentors available</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
             
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => form.reset()}>
-                Cancel
+                Reset
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -163,9 +163,12 @@ export const selfAssessments = pgTable("self_assessments", {
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   senderId: integer("sender_id").references(() => users.id).notNull(),
-  receiverId: integer("receiver_id").references(() => users.id).notNull(),
+  receiverId: integer("receiver_id").references(() => users.id), // Nullable for group messages
+  mentorId: integer("mentor_id").references(() => mentors.id), // For group chat identification
   content: text("content").notNull(),
   isRead: boolean("is_read").default(false).notNull(),
+  isGroupMessage: boolean("is_group_message").default(false).notNull(),
+  isAdminMentorMessage: boolean("is_admin_mentor_message").default(false).notNull(), // For admin-mentor chat
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -177,7 +180,45 @@ export const notifications = pgTable("notifications", {
   isRead: boolean("is_read").default(false).notNull(),
   isUrgent: boolean("is_urgent").default(false).notNull(),
   targetRoles: json("target_roles").notNull().$type<string[]>(), // Roles that should see this notification
+  targetUserId: integer("target_user_id").references(() => users.id), // Specific user to notify (optional)
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Meetings
+export const MeetingType = {
+  ONE_TO_ONE: "one_to_one",
+  MANY_TO_ONE: "many_to_one",
+} as const;
+
+export const MeetingStatus = {
+  SCHEDULED: "scheduled",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+} as const;
+
+export const meetings = pgTable("meetings", {
+  id: serial("id").primaryKey(),
+  mentorId: integer("mentor_id").references(() => mentors.id).notNull(),
+  type: text("type").notNull().default(MeetingType.ONE_TO_ONE),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"), // physical room or video link
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(60),
+  status: text("status").notNull().default(MeetingStatus.SCHEDULED),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const meetingParticipants = pgTable("meeting_participants", {
+  id: serial("id").primaryKey(),
+  meetingId: integer("meeting_id").references(() => meetings.id).notNull(),
+  menteeId: integer("mentee_id").references(() => mentees.id).notNull(),
+  attended: boolean("attended").default(false).notNull(),
+  remarks: text("remarks"),
+  stars: integer("stars"), // 1-5
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const selfAssessmentsRelations = relations(selfAssessments, ({ one }) => ({
@@ -195,6 +236,29 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   receiver: one(users, {
     fields: [messages.receiverId],
     references: [users.id],
+  }),
+  mentor: one(mentors, {
+    fields: [messages.mentorId],
+    references: [mentors.id],
+  }),
+}));
+
+export const meetingsRelations = relations(meetings, ({ one, many }) => ({
+  mentor: one(mentors, {
+    fields: [meetings.mentorId],
+    references: [mentors.id],
+  }),
+  participants: many(meetingParticipants),
+}));
+
+export const meetingParticipantsRelations = relations(meetingParticipants, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [meetingParticipants.meetingId],
+    references: [meetings.id],
+  }),
+  mentee: one(mentees, {
+    fields: [meetingParticipants.menteeId],
+    references: [mentees.id],
   }),
 }));
 
@@ -268,6 +332,26 @@ export const insertNotificationSchema = createInsertSchema(notifications, {
 });
 export const selectNotificationSchema = createSelectSchema(notifications);
 
+// Meeting schemas
+export const insertMeetingSchema = createInsertSchema(meetings, {
+  type: (schema) => schema.refine(
+    (val) => [MeetingType.ONE_TO_ONE, MeetingType.MANY_TO_ONE].includes(val as any),
+    { message: "Invalid meeting type" }
+  ),
+  status: (schema) => schema.refine(
+    (val) => [MeetingStatus.SCHEDULED, MeetingStatus.COMPLETED, MeetingStatus.CANCELLED].includes(val as any),
+    { message: "Invalid meeting status" }
+  ),
+  title: (schema) => schema.min(3, "Title must be at least 3 characters"),
+  durationMinutes: (schema) => schema.gte(5, "Duration must be at least 5 minutes").lte(480, "Duration too long"),
+});
+export const selectMeetingSchema = createSelectSchema(meetings);
+
+export const insertMeetingParticipantSchema = createInsertSchema(meetingParticipants, {
+  stars: (schema) => schema.gte(1, "Stars must be at least 1").lte(5, "Stars cannot exceed 5").nullable().optional(),
+});
+export const selectMeetingParticipantSchema = createSelectSchema(meetingParticipants);
+
 // Type exports for use in the application
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = z.infer<typeof selectUserSchema>;
@@ -295,3 +379,9 @@ export type Message = z.infer<typeof selectMessageSchema>;
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = z.infer<typeof selectNotificationSchema>;
+
+export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
+export type Meeting = z.infer<typeof selectMeetingSchema>;
+
+export type InsertMeetingParticipant = z.infer<typeof insertMeetingParticipantSchema>;
+export type MeetingParticipant = z.infer<typeof selectMeetingParticipantSchema>;

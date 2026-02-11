@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Helper to throw detailed errors
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -7,15 +8,22 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// ✅ FIXED: apiRequest now handles FormData correctly
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown
 ): Promise<Response> {
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers: !isFormData && data ? { "Content-Type": "application/json" } : {},
+    body: data
+      ? isFormData
+        ? (data as FormData)
+        : JSON.stringify(data)
+      : undefined,
     credentials: "include",
   });
 
@@ -23,6 +31,7 @@ export async function apiRequest(
   return res;
 }
 
+// Custom query function with 401 handling
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
@@ -41,6 +50,7 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+// Query client config
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

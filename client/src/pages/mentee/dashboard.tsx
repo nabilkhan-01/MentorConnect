@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, BookOpen, GraduationCap, User, Phone, Mail, School, AlertTriangle } from "lucide-react";
 import { formatPhoneNumber, isAtRisk } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 type MenteeProfile = {
   mentee: {
@@ -31,7 +32,10 @@ type AcademicRecord = {
   id: number;
   menteeId: number;
   subjectId: number;
-  cieMarks?: number;
+  cie1Marks?: number;
+  cie2Marks?: number;
+  cie3Marks?: number;
+  avgCieMarks?: number;
   assignmentMarks?: number;
   totalMarks?: number;
   attendance?: number;
@@ -46,23 +50,27 @@ type AcademicRecord = {
 };
 
 export default function MenteeDashboard() {
+  const { user } = useAuth();
+  
   // Fetch mentee profile and academic data
   const { data: profileData, isLoading: isProfileLoading } = useQuery<MenteeProfile>({
-    queryKey: ["/api/mentee/profile"],
+    queryKey: ["/api/mentee/profile", user?.id],
+    enabled: !!user?.id,
   });
   
   const { data: academicRecords, isLoading: isAcademicLoading } = useQuery<AcademicRecord[]>({
-    queryKey: ["/api/mentee/academic-records"],
+    queryKey: ["/api/mentee/academic-records", user?.id],
+    enabled: !!user?.id,
   });
   
   // Calculate overall attendance
   const overallAttendance = academicRecords?.length
-    ? academicRecords.reduce((sum, record) => sum + (record.attendance || 0), 0) / academicRecords.length
+    ? academicRecords.reduce((sum, record) => sum + (record.attendance && record.attendance !== null ? record.attendance : 0), 0) / academicRecords.length
     : undefined;
   
   // Calculate average marks
   const averageMarks = academicRecords?.length
-    ? academicRecords.reduce((sum, record) => sum + (record.totalMarks || 0), 0) / academicRecords.length
+    ? academicRecords.reduce((sum, record) => sum + (record.totalMarks && record.totalMarks !== null ? record.totalMarks : 0), 0) / academicRecords.length
     : undefined;
   
   // Check if student is at risk
@@ -222,7 +230,7 @@ export default function MenteeDashboard() {
                   <h3 className="text-sm font-medium text-muted-foreground">Average Marks</h3>
                   <div className="text-2xl font-bold">
                     {averageMarks?.toFixed(1)}
-                    <span className="text-sm font-normal text-muted-foreground"> / 100</span>
+                    <span className="text-sm font-normal text-muted-foreground"> / 50</span>
                   </div>
                   
                   <div className="pt-2">
@@ -261,8 +269,8 @@ export default function MenteeDashboard() {
                   <TableRow>
                     <TableHead>Subject Code</TableHead>
                     <TableHead>Subject Name</TableHead>
-                    <TableHead>CIE Marks</TableHead>
-                    <TableHead>Assignment Marks</TableHead>
+                    <TableHead>Avg CIE</TableHead>
+                    <TableHead>Assignment</TableHead>
                     <TableHead>Total Marks</TableHead>
                     <TableHead>Attendance</TableHead>
                   </TableRow>
@@ -272,11 +280,11 @@ export default function MenteeDashboard() {
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.subject.code}</TableCell>
                       <TableCell>{record.subject.name}</TableCell>
-                      <TableCell>{record.cieMarks !== undefined ? record.cieMarks : "-"} / 50</TableCell>
-                      <TableCell>{record.assignmentMarks !== undefined ? record.assignmentMarks : "-"} / 50</TableCell>
-                      <TableCell className="font-medium">{record.totalMarks !== undefined ? record.totalMarks : "-"} / 100</TableCell>
+                      <TableCell>{record.avgCieMarks !== undefined && record.avgCieMarks !== null ? record.avgCieMarks.toFixed(1) : "-"} / 30</TableCell>
+                      <TableCell>{record.assignmentMarks !== undefined && record.assignmentMarks !== null ? record.assignmentMarks.toFixed(1) : "-"} / 20</TableCell>
+                      <TableCell className="font-medium">{record.totalMarks !== undefined && record.totalMarks !== null ? record.totalMarks.toFixed(1) : "-"} / 50</TableCell>
                       <TableCell>
-                        {record.attendance !== undefined ? (
+                        {record.attendance !== undefined && record.attendance !== null ? (
                           <Badge variant="outline" className={`${
                             record.attendance < 85 
                               ? 'bg-red-50 text-red-700 border-red-200' 

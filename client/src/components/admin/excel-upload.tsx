@@ -56,14 +56,7 @@ export default function ExcelUpload({
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await apiRequest("POST", apiEndpoint, null, {
-        body: formData,
-        customConfig: {
-          headers: {
-            // Don't set Content-Type here, let the browser set it with the boundary
-          },
-        },
-      });
+      const response = await apiRequest("POST", apiEndpoint, formData);
 
       const result: UploadResponse = await response.json();
       setUploadResult(result);

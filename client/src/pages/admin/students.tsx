@@ -32,7 +32,13 @@ export default function AdminStudents() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
       toast({
         title: "Student added",
         description: "The student has been successfully added to the system.",
@@ -55,7 +61,12 @@ export default function AdminStudents() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
       toast({
         title: "Student updated",
         description: "The student information has been successfully updated.",
@@ -77,7 +88,13 @@ export default function AdminStudents() {
       await apiRequest("DELETE", `/api/admin/students/${studentId}`);
     },
     onSuccess: () => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/admin/students"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/mentees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mentor/dashboard/stats"] });
       toast({
         title: "Student deleted",
         description: "The student has been removed from the system.",
@@ -217,7 +234,12 @@ export default function AdminStudents() {
           {selectedStudent && (
             <StudentForm 
               onSubmit={handleEditStudent}
-              initialValues={selectedStudent}
+              initialValues={{
+                ...selectedStudent,
+                mobileNumber: selectedStudent.mobileNumber ?? undefined,
+                parentMobileNumber: selectedStudent.parentMobileNumber ?? undefined,
+                mentorId: selectedStudent.mentorId ?? undefined,
+              }}
               isSubmitting={updateStudentMutation.isPending}
               mode="edit"
             />

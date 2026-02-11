@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Loader2, TrendingUp, TrendingDown, BookOpen, Calendar, AlertTriangle } from "lucide-react";
 import { isAtRisk } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 type AcademicRecord = {
   id: number;
@@ -48,8 +49,11 @@ export default function AcademicProgressPage() {
   const [selectedSemester, setSelectedSemester] = useState<string>('all');
   
   // Fetch academic records
+  const { user } = useAuth();
+  
   const { data: academicRecords, isLoading: isAcademicLoading } = useQuery<AcademicRecord[]>({
-    queryKey: ["/api/mentee/academic-records"],
+    queryKey: ["/api/mentee/academic-records", user?.id],
+    enabled: !!user?.id,
   });
 
   // Filter records by selected semester
@@ -58,37 +62,44 @@ export default function AcademicProgressPage() {
     return record.semester.toString() === selectedSemester;
   }) || [];
 
-  // Get unique semesters
-  const uniqueSemesters = academicRecords 
+  // Get unique semesters from records
+  const recordedSemesters = academicRecords 
     ? Array.from(new Set(academicRecords.map(record => record.semester))).sort((a, b) => a - b)
     : [];
+
+  // Get current semester (assuming student is in their current semester)
+  // If no records exist, default to semester 1
+  const currentSemester = recordedSemesters.length > 0 ? Math.max(...recordedSemesters) : 1;
+  
+  // Generate all semesters from 1 to current semester
+  const allSemesters = Array.from({ length: currentSemester }, (_, i) => i + 1);
 
   // Calculate metrics
   const calculateAverageMarks = () => {
     if (!filteredRecords.length) return 0;
-    return filteredRecords.reduce((sum, record) => sum + (record.totalMarks || 0), 0) / filteredRecords.length;
+    return filteredRecords.reduce((sum, record) => sum + (record.totalMarks && record.totalMarks !== null ? record.totalMarks : 0), 0) / filteredRecords.length;
   };
 
   const calculateAverageAttendance = () => {
     if (!filteredRecords.length) return 0;
-    return filteredRecords.reduce((sum, record) => sum + (record.attendance || 0), 0) / filteredRecords.length;
+    return filteredRecords.reduce((sum, record) => sum + (record.attendance && record.attendance !== null ? record.attendance : 0), 0) / filteredRecords.length;
   };
 
   const calculateHighestMarks = () => {
     if (!filteredRecords.length) return { subject: '', marks: 0 };
-    const highestRecord = [...filteredRecords].sort((a, b) => (b.totalMarks || 0) - (a.totalMarks || 0))[0];
+    const highestRecord = [...filteredRecords].sort((a, b) => (b.totalMarks && b.totalMarks !== null ? b.totalMarks : 0) - (a.totalMarks && a.totalMarks !== null ? a.totalMarks : 0))[0];
     return {
       subject: highestRecord.subject.name,
-      marks: highestRecord.totalMarks || 0
+      marks: highestRecord.totalMarks && highestRecord.totalMarks !== null ? highestRecord.totalMarks : 0
     };
   };
 
   const calculateLowestMarks = () => {
     if (!filteredRecords.length) return { subject: '', marks: 0 };
-    const lowestRecord = [...filteredRecords].sort((a, b) => (a.totalMarks || 0) - (b.totalMarks || 0))[0];
+    const lowestRecord = [...filteredRecords].sort((a, b) => (a.totalMarks && a.totalMarks !== null ? a.totalMarks : 0) - (b.totalMarks && b.totalMarks !== null ? b.totalMarks : 0))[0];
     return {
       subject: lowestRecord.subject.name,
-      marks: lowestRecord.totalMarks || 0
+      marks: lowestRecord.totalMarks && lowestRecord.totalMarks !== null ? lowestRecord.totalMarks : 0
     };
   };
 
@@ -106,7 +117,7 @@ export default function AcademicProgressPage() {
     ];
     
     filteredRecords.forEach(record => {
-      const marks = record.totalMarks || 0;
+      const marks = record.totalMarks && record.totalMarks !== null ? record.totalMarks : 0;
       const range = ranges.find(r => marks >= r.min && marks <= r.max);
       if (range) range.count++;
     });
@@ -115,11 +126,28 @@ export default function AcademicProgressPage() {
   };
 
   const prepareSubjectPerformanceData = (): SubjectPerformance[] => {
-    return filteredRecords.map(record => ({
-      name: record.subject.code,
-      marks: record.totalMarks || 0,
-      attendance: record.attendance || 0,
-    }));
+    // Group records by subject and calculate averages if multiple records exist
+    const subjectMap = new Map<string, { marks: number[], name: string }>();
+    
+    filteredRecords.forEach(record => {
+      const subjectCode = record.subject.code;
+      const subjectName = record.subject.name;
+      
+      if (!subjectMap.has(subjectCode)) {
+        subjectMap.set(subjectCode, { marks: [], name: subjectName });
+      }
+      
+      const subject = subjectMap.get(subjectCode)!;
+      const totalMarks = record.totalMarks && record.totalMarks !== null ? record.totalMarks : 0;
+      subject.marks.push(totalMarks);
+    });
+    
+    // Convert to array and calculate averages
+    return Array.from(subjectMap.entries()).map(([code, data]) => ({
+      name: code, // Use subject code for X-axis
+      marks: data.marks.reduce((sum, mark) => sum + mark, 0) / data.marks.length,
+      attendance: 0, // Keep for type compatibility but not used
+    })).sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically for consistency
   };
 
   // Calculate metrics
@@ -149,7 +177,7 @@ export default function AcademicProgressPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Semesters</SelectItem>
-              {uniqueSemesters.map((semester) => (
+              {allSemesters.map((semester) => (
                 <SelectItem key={semester} value={semester.toString()}>
                   Semester {semester}
                 </SelectItem>
@@ -263,14 +291,28 @@ export default function AcademicProgressPage() {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={subjectPerformanceData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                    <BarChart data={subjectPerformanceData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis domain={[0, 100]} />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="marks" name="Marks" fill="#0088FE" />
-                      <Bar dataKey="attendance" name="Attendance (%)" fill="#00C49F" />
+                      <XAxis 
+                        dataKey="name" 
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                        interval={0}
+                        fontSize={12}
+                      />
+                      <YAxis domain={[0, 50]} />
+                      <Tooltip 
+                        formatter={(value) => {
+                          const numericValue = typeof value === "number" ? value : Number(value);
+                          const label = Number.isFinite(numericValue)
+                            ? `${numericValue.toFixed(1)}/50`
+                            : `${String(value)}/50`;
+                          return [label, "Marks"];
+                        }}
+                        labelFormatter={(label) => `Subject: ${label}`}
+                      />
+                      <Bar dataKey="marks" name="Marks (out of 50)" fill="#0088FE" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -323,8 +365,8 @@ export default function AcademicProgressPage() {
               <div className="bg-blue-50 p-4 rounded-md mb-4">
                 <h4 className="text-sm font-medium text-blue-800">Understanding Your Academic Records</h4>
                 <div className="mt-1 text-xs text-blue-700 space-y-1">
-                  <p>• <strong>CIE 1, 2, 3</strong>: Individual Continuous Internal Evaluation marks (each out of 30)</p>
-                  <p>• <strong>Avg CIE</strong>: Average of your CIE marks (out of 30)</p>
+                  <p>• <strong>CIE 1, 2, 3</strong>: Individual Continuous Internal Evaluation marks (out of 10 each)</p>
+                  <p>• <strong>Avg CIE</strong>: Average of your three CIE marks (out of 30)</p>
                   <p>• <strong>Assignment</strong>: Assignment score (out of 20)</p>
                   <p>• <strong>Total Marks</strong>: Combined score (Average CIE + Assignment = max 50)</p>
                 </div>
@@ -354,11 +396,11 @@ export default function AcademicProgressPage() {
                         <TableCell className="font-medium">{record.subject.code}</TableCell>
                         <TableCell>{record.subject.name}</TableCell>
                         <TableCell>{record.semester}</TableCell>
-                        <TableCell>{record.cie1Marks !== null && record.cie1Marks !== undefined ? record.cie1Marks.toFixed(1) : "-"}</TableCell>
-                        <TableCell>{record.cie2Marks !== null && record.cie2Marks !== undefined ? record.cie2Marks.toFixed(1) : "-"}</TableCell>
-                        <TableCell>{record.cie3Marks !== null && record.cie3Marks !== undefined ? record.cie3Marks.toFixed(1) : "-"}</TableCell>
-                        <TableCell>{record.avgCieMarks !== null && record.avgCieMarks !== undefined ? record.avgCieMarks.toFixed(1) : "-"}</TableCell>
-                        <TableCell>{record.assignmentMarks !== null && record.assignmentMarks !== undefined ? record.assignmentMarks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.cie1Marks !== undefined && record.cie1Marks !== null ? record.cie1Marks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.cie2Marks !== undefined && record.cie2Marks !== null ? record.cie2Marks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.cie3Marks !== undefined && record.cie3Marks !== null ? record.cie3Marks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.avgCieMarks !== undefined && record.avgCieMarks !== null ? record.avgCieMarks.toFixed(1) : "-"}</TableCell>
+                        <TableCell>{record.assignmentMarks !== undefined && record.assignmentMarks !== null ? record.assignmentMarks.toFixed(1) : "-"}</TableCell>
                         <TableCell>
                           <Badge variant={record.totalMarks && record.totalMarks < 20 ? "destructive" : "outline"}
                             className={record.totalMarks && record.totalMarks >= 40 ? "bg-green-50 text-green-700 border-green-200" : ""}>
@@ -366,7 +408,7 @@ export default function AcademicProgressPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {record.attendance !== undefined ? (
+                          {record.attendance !== undefined && record.attendance !== null ? (
                             <Badge variant="outline" className={`${isAtRisk(record.attendance) 
                               ? 'bg-red-50 text-red-700 border-red-200' 
                               : 'bg-green-50 text-green-700 border-green-200'}`}>

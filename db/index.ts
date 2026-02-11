@@ -1,10 +1,7 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+// Use this file for both local and production Postgres development
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-// This is the correct way neon config - DO NOT change this
-neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -12,5 +9,26 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+const isProduction = process.env.NODE_ENV === "production";
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Many managed Postgres providers (Neon/Render/etc.) require TLS.
+  // `rejectUnauthorized: false` avoids CA issues on PaaS; acceptable for demo deployments.
+  ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+});
+
+// Create session table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS session (
+    sid varchar PRIMARY KEY,
+    sess json NOT NULL,
+    expire timestamp(6) NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
+`).catch(err => {
+  console.log('Session table creation error (may already exist):', err.message);
+});
+
+export const db = drizzle(pool, { schema });

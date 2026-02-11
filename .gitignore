@@ -4,3 +4,32 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Local env files (keep .env.example committed)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local tooling
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+
+# Optional local databases / dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# Build caches
+.vite/
+.turbo/

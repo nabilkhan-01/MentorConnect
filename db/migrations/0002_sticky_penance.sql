@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "is_admin_mentor_message" boolean DEFAULT false NOT NULL;

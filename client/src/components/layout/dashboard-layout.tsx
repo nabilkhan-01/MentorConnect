@@ -35,11 +35,11 @@ export function DashboardLayout({
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 z-20 bg-neutral-800 bg-opacity-50 md:hidden"
+            className="fixed inset-0 z-20 bg-black/50 md:hidden"
             onClick={() => setSidebarOpen(false)}
           >
             <div 
-              className="absolute left-0 top-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out"
+              className="absolute left-0 top-0 h-full w-64 bg-card shadow-lg transform transition-transform duration-300 ease-in-out"
               onClick={(e) => e.stopPropagation()}
             >
               <Sidebar />
@@ -50,14 +50,14 @@ export function DashboardLayout({
         {/* Mobile menu toggle button removed to avoid duplication with header menu */}
         
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-neutral-50 p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
           <div className="container mx-auto">
             {pageTitle && (
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-2xl font-bold text-neutral-800">{pageTitle}</h1>
+                  <h1 className="text-2xl font-bold text-foreground">{pageTitle}</h1>
                   {pageDescription && (
-                    <p className="text-sm text-neutral-500 mt-1">{pageDescription}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{pageDescription}</p>
                   )}
                 </div>
                 {/* Slot for action buttons - provided via children */}

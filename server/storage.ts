@@ -3,7 +3,9 @@ import * as schema from "@shared/schema";
 import { eq, and, or, asc, desc, lt, gt, sql, count, avg } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
+import type { Store } from "express-session";
 import { pool } from "@db";
+import { cache, cacheKeys, CACHE_TTL, invalidateUserCache, invalidateAdminCache, invalidateMentorCache, invalidateMessageCache, invalidateNotificationCache } from "./cache";
 
 // Extend the schema types for internal use
 interface MenteeWithDetails extends schema.Mentee {
@@ -90,12 +92,33 @@ export interface IStorage {
   createMessage: (message: Omit<schema.InsertMessage, "id">) => Promise<schema.Message>;
   markMessageAsRead: (messageId: number) => Promise<void>;
   
-  // Session store
-  sessionStore: session.SessionStore;
+  // Group message operations
+  getGroupMessagesByMentor: (mentorId: number) => Promise<(schema.Message & { sender: schema.User })[]>;
+  createGroupMessage: (message: Omit<schema.InsertMessage, "id">) => Promise<schema.Message>;
+  deleteOldGroupMessages: () => Promise<number>;
+  getAllGroupChats: () => Promise<any[]>;
+  getAdminMentorMessages: () => Promise<any[]>;
+  createAdminMentorMessage: (message: Omit<schema.InsertMessage, "id">) => Promise<schema.Message>;
+
+  // Meeting operations
+  createMeetingWithParticipants: (
+    meeting: Omit<schema.InsertMeeting, "id">,
+    menteeIds: number[]
+  ) => Promise<schema.Meeting>;
+  getMeetingsByMentor: (mentorId: number) => Promise<any[]>;
+  getMeetingsByMentee: (menteeId: number) => Promise<any[]>;
+  getAllMeetingsWithParticipants: () => Promise<any[]>;
+  updateMeetingFeedback: (
+    meetingId: number,
+    updates: Array<{ menteeId: number; attended: boolean; remarks?: string | null; stars?: number | null }>,
+    setCompleted?: boolean
+  ) => Promise<void>;
+  
+  sessionStore: session.Store;
 }
 
 class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: Store;
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({
@@ -177,8 +200,8 @@ class DatabaseStorage implements IStorage {
 
     return {
       ...mentor,
-      name: mentor.user?.name,
-      email: mentor.user?.email,
+      name: mentor.user?.name ?? undefined,
+      email: mentor.user?.email ?? undefined,
       menteeCount,
     };
   }
@@ -204,8 +227,8 @@ class DatabaseStorage implements IStorage {
       
       result.push({
         ...mentor,
-        name: mentor.user?.name,
-        email: mentor.user?.email,
+        name: mentor.user?.name ?? undefined,
+        email: mentor.user?.email ?? undefined,
         menteeCount,
       });
     }
@@ -293,10 +316,10 @@ class DatabaseStorage implements IStorage {
 
     return {
       ...mentee,
-      name: mentee.user?.name,
-      email: mentee.user?.email,
+      name: mentee.user?.name ?? undefined,
+      email: mentee.user?.email ?? undefined,
       attendance,
-      mentorName: mentee.mentor?.user?.name,
+      mentorName: mentee.mentor?.user?.name ?? undefined,
     };
   }
 
@@ -335,10 +358,10 @@ class DatabaseStorage implements IStorage {
 
       result.push({
         ...mentee,
-        name: mentee.user?.name,
-        email: mentee.user?.email,
+        name: mentee.user?.name ?? undefined,
+        email: mentee.user?.email ?? undefined,
         attendance,
-        mentorName: mentee.mentor?.user?.name,
+        mentorName: mentee.mentor?.user?.name ?? undefined,
       });
     }
 
@@ -371,8 +394,8 @@ class DatabaseStorage implements IStorage {
 
       result.push({
         ...mentee,
-        name: mentee.user?.name,
-        email: mentee.user?.email,
+        name: mentee.user?.name ?? undefined,
+        email: mentee.user?.email ?? undefined,
         attendance,
       });
     }
@@ -967,6 +990,261 @@ class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(schema.messages.id, messageId));
+  }
+
+  // Group message operations
+  async getGroupMessagesByMentor(mentorId: number): Promise<(schema.Message & { sender: schema.User })[]> {
+    const messages = await db.query.messages.findMany({
+      where: and(
+        eq(schema.messages.mentorId, mentorId),
+        eq(schema.messages.isGroupMessage, true)
+      ),
+      with: {
+        sender: true,
+      },
+      orderBy: [asc(schema.messages.createdAt)],
+    });
+
+    return messages;
+  }
+
+  async createGroupMessage(message: Omit<schema.InsertMessage, "id">): Promise<schema.Message> {
+    const [newMessage] = await db.insert(schema.messages).values(message).returning();
+    return newMessage;
+  }
+
+  async deleteOldGroupMessages(): Promise<number> {
+    try {
+      // Calculate date 1 month ago
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      
+      console.log(`Deleting group messages older than: ${oneMonthAgo.toISOString()}`);
+      
+      // Delete group messages older than 1 month
+      const result = await db
+        .delete(schema.messages)
+        .where(
+          and(
+            eq(schema.messages.isGroupMessage, true),
+            lt(schema.messages.createdAt, oneMonthAgo)
+          )
+        );
+      
+      console.log(`Delete operation result:`, result);
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error("Error in deleteOldGroupMessages:", error);
+      throw error;
+    }
+  }
+
+  // Meeting operations
+  async createMeetingWithParticipants(
+    meeting: Omit<schema.InsertMeeting, "id">,
+    menteeIds: number[]
+  ): Promise<schema.Meeting> {
+    const [created] = await db.insert(schema.meetings).values(meeting).returning();
+    if (menteeIds.length) {
+      await db.insert(schema.meetingParticipants).values(
+        menteeIds.map((menteeId) => ({ meetingId: created.id, menteeId }))
+      );
+    }
+    return created;
+  }
+
+  async getMeetingsByMentor(mentorId: number): Promise<any[]> {
+    const items = await db.query.meetings.findMany({
+      where: eq(schema.meetings.mentorId, mentorId),
+      with: {
+        participants: {
+          with: {
+            mentee: {
+              with: { user: true },
+            },
+          },
+        },
+      },
+      orderBy: [desc(schema.meetings.scheduledAt)],
+    });
+    return items;
+  }
+
+  async getMeetingsByMentee(menteeId: number): Promise<any[]> {
+    // fetch participation rows then map to meetings
+    const parts = await db.query.meetingParticipants.findMany({
+      where: eq(schema.meetingParticipants.menteeId, menteeId),
+      with: {
+        meeting: {
+          with: {
+            mentor: { with: { user: true } },
+            participants: {
+              with: {
+                mentee: { with: { user: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [desc(schema.meetingParticipants.createdAt)],
+    });
+    // Map to the meeting object for convenience
+    return parts.map((p) => p.meeting);
+  }
+
+  async getAllMeetingsWithParticipants(): Promise<any[]> {
+    const items = await db.query.meetings.findMany({
+      with: {
+        mentor: { with: { user: true } },
+        participants: {
+          with: {
+            mentee: { with: { user: true } },
+          },
+        },
+      },
+      orderBy: [desc(schema.meetings.scheduledAt)],
+    });
+    return items;
+  }
+
+  async updateMeetingFeedback(
+    meetingId: number,
+    updates: Array<{ menteeId: number; attended: boolean; remarks?: string | null; stars?: number | null }>,
+    setCompleted = false
+  ): Promise<void> {
+    for (const u of updates) {
+      await db
+        .update(schema.meetingParticipants)
+        .set({
+          attended: u.attended,
+          remarks: u.remarks ?? null,
+          stars: u.stars ?? null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(schema.meetingParticipants.meetingId, meetingId),
+            eq(schema.meetingParticipants.menteeId, u.menteeId)
+          )
+        );
+    }
+    if (setCompleted) {
+      await db
+        .update(schema.meetings)
+        .set({ status: schema.MeetingStatus.COMPLETED as any, updatedAt: new Date() })
+        .where(eq(schema.meetings.id, meetingId));
+    }
+  }
+
+  async getAllGroupChats(): Promise<any[]> {
+    // Get all mentors with their mentees and recent messages
+    const mentors = await db
+      .select({
+        mentorId: schema.mentors.id,
+        mentorName: schema.users.name,
+        mentorUsername: schema.users.username,
+        mentorEmail: schema.users.email,
+        mentorUserId: schema.mentors.userId,
+      })
+      .from(schema.mentors)
+      .innerJoin(schema.users, eq(schema.mentors.userId, schema.users.id));
+
+    const groupChats = [];
+
+    for (const mentor of mentors) {
+      // Get mentees for this mentor
+      const mentees = await db
+        .select({
+          menteeId: schema.mentees.id,
+          menteeName: schema.users.name,
+          menteeUsername: schema.users.username,
+          menteeEmail: schema.users.email,
+          menteeUsn: schema.mentees.usn,
+          menteeUserId: schema.mentees.userId,
+        })
+        .from(schema.mentees)
+        .innerJoin(schema.users, eq(schema.mentees.userId, schema.users.id))
+        .where(eq(schema.mentees.mentorId, mentor.mentorId));
+
+      // Get recent messages for this group (if any)
+      const recentMessages = await db
+        .select({
+          id: schema.messages.id,
+          content: schema.messages.content,
+          createdAt: schema.messages.createdAt,
+          senderId: schema.messages.senderId,
+          senderName: schema.users.name,
+          senderUsername: schema.users.username,
+        })
+        .from(schema.messages)
+        .innerJoin(schema.users, eq(schema.messages.senderId, schema.users.id))
+        .where(
+          and(
+            eq(schema.messages.isGroupMessage, true),
+            eq(schema.messages.mentorId, mentor.mentorId)
+          )
+        )
+        .orderBy(desc(schema.messages.createdAt))
+        .limit(10);
+
+      // Include all mentors, even if they don't have mentees
+      groupChats.push({
+        mentorId: mentor.mentorId,
+        mentor: {
+          id: mentor.mentorUserId,
+          name: mentor.mentorName,
+          username: mentor.mentorUsername,
+          email: mentor.mentorEmail,
+        },
+        mentees: mentees.map(mentee => ({
+          id: mentee.menteeUserId,
+          name: mentee.menteeName,
+          username: mentee.menteeUsername,
+          email: mentee.menteeEmail,
+          usn: mentee.menteeUsn,
+        })),
+        recentMessages,
+        totalMembers: mentees.length + 1, // +1 for mentor
+      });
+    }
+
+    return groupChats;
+  }
+
+  async getAdminMentorMessages(): Promise<any[]> {
+    // Use cache-first strategy
+    return await cache.getOrSet(
+      cacheKeys.adminMentorMessages(),
+      async () => {
+        // Get all admin-mentor messages
+        const messages = await db
+          .select({
+            id: schema.messages.id,
+            content: schema.messages.content,
+            createdAt: schema.messages.createdAt,
+            senderId: schema.messages.senderId,
+            senderName: schema.users.name,
+            senderUsername: schema.users.username,
+            senderRole: schema.users.role,
+          })
+          .from(schema.messages)
+          .innerJoin(schema.users, eq(schema.messages.senderId, schema.users.id))
+          .where(eq(schema.messages.isAdminMentorMessage, true))
+          .orderBy(asc(schema.messages.createdAt));
+
+        return messages;
+      },
+      CACHE_TTL.admin_mentor_messages
+    );
+  }
+
+  async createAdminMentorMessage(message: Omit<schema.InsertMessage, "id">): Promise<schema.Message> {
+    const [newMessage] = await db.insert(schema.messages).values(message).returning();
+    
+    // Invalidate admin-mentor messages cache
+    await invalidateMessageCache();
+    
+    return newMessage;
   }
 }
 
