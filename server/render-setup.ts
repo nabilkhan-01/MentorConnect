@@ -45,6 +45,7 @@ async function getUserCount(): Promise<number | null> {
 async function main() {
   const shouldMigrate = isTruthy(process.env.AUTO_DB_SETUP);
   const shouldSeed = isTruthy(process.env.AUTO_SEED);
+  const forceSeed = isTruthy(process.env.FORCE_SEED);
 
   if (!shouldMigrate && !shouldSeed) {
     return;
@@ -57,14 +58,14 @@ async function main() {
   console.log("\n[render-setup] Running database setup...");
 
   if (shouldMigrate) {
-    console.log("[render-setup] Applying schema (drizzle-kit push)...");
-    run("npx", ["drizzle-kit", "push", "--force", "--config=./drizzle.config.ts"]);
+    console.log("[render-setup] Applying migrations (drizzle-kit migrate)...");
+    run("npx", ["drizzle-kit", "migrate", "--config=./drizzle.config.ts"]);
   }
 
   if (shouldSeed) {
     const userCount = await getUserCount();
-    if (userCount && userCount > 0) {
-      console.log(`[render-setup] Skipping seed (users already exist: ${userCount})`);
+    if (!forceSeed && userCount && userCount > 0) {
+      console.log(`[render-setup] Skipping seed (users already exist: ${userCount}). Set FORCE_SEED=1 to reseed.`);
       return;
     }
 
