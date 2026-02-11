@@ -138,9 +138,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const userId = parseInt(id);
+
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Settings are view-only for admin/mentor/mentee
+      const readOnlyRoles: string[] = [UserRole.ADMIN, UserRole.MENTOR, UserRole.MENTEE];
+      if (readOnlyRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Settings are read-only" });
+      }
       
       // Ensure user can only update their own password
-      if (!req.user || req.user.id !== userId) {
+      if (req.user.id !== userId) {
         return res.status(403).json({ message: "You can only change your own password" });
       }
       
@@ -176,9 +186,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const userId = parseInt(id);
+
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Settings are view-only for admin/mentor/mentee
+      const readOnlyRoles: string[] = [UserRole.ADMIN, UserRole.MENTOR, UserRole.MENTEE];
+      if (readOnlyRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Settings are read-only" });
+      }
       
       // Ensure user can only update their own notification settings
-      if (!req.user || req.user.id !== userId) {
+      if (req.user.id !== userId) {
         return res.status(403).json({ message: "You can only update your own notification settings" });
       }
       

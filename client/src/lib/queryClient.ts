@@ -14,6 +14,17 @@ export async function apiRequest(
   url: string,
   data?: unknown
 ): Promise<Response> {
+  const readOnlyRaw = String((import.meta as any).env?.VITE_READ_ONLY_MODE ?? "1").toLowerCase();
+  const isReadOnlyMode = !["0", "false", "off", "no"].includes(readOnlyRaw);
+
+  const upperMethod = method.toUpperCase();
+  const isWrite = !(upperMethod === "GET" || upperMethod === "HEAD" || upperMethod === "OPTIONS");
+  const isAuthWrite = url === "/api/login" || url === "/api/logout";
+
+  if (isReadOnlyMode && isWrite && !isAuthWrite) {
+    throw new Error("403: Read-only mode");
+  }
+
   const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
 
   const res = await fetch(url, {

@@ -1,19 +1,20 @@
-import { useState } from "react";
+import { useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { UserRole } from "@shared/schema";
 
 const passwordFormSchema = z.object({
   currentPassword: z.string().min(6, "Current password must be at least 6 characters"),
@@ -36,9 +37,24 @@ type NotificationsFormValues = z.infer<typeof notificationsFormSchema>;
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   
   if (!user) return <></>; // Return empty fragment instead of null
+
+  const isReadOnly = [UserRole.ADMIN, UserRole.MENTOR, UserRole.MENTEE].includes(
+    user.role as (typeof UserRole)[keyof typeof UserRole],
+  );
+
+  const lastReadOnlyToastAt = useRef(0);
+  const notifyReadOnly = useCallback(() => {
+    const now = Date.now();
+    if (now - lastReadOnlyToastAt.current < 1500) return;
+    lastReadOnlyToastAt.current = now;
+    toast({
+      title: "Read-only",
+      description: "Settings are view-only.",
+      variant: "destructive",
+    });
+  }, [toast]);
   
   const passwordMutation = useMutation({
     mutationFn: async (data: PasswordFormValues) => {
@@ -107,15 +123,23 @@ export default function SettingsPage() {
   });
   
   function onPasswordSubmit(data: PasswordFormValues) {
+    if (isReadOnly) {
+      notifyReadOnly();
+      return;
+    }
     passwordMutation.mutate(data);
   }
   
   function onNotificationsSubmit(data: NotificationsFormValues) {
+    if (isReadOnly) {
+      notifyReadOnly();
+      return;
+    }
     notificationsMutation.mutate(data);
   }
   
   return (
-    <DashboardLayout pageTitle="Settings" pageDescription="Manage your account settings and preferences">
+    <DashboardLayout pageTitle="Settings" pageDescription="View your account settings and preferences">
       <Tabs defaultValue="password" className="space-y-6">
         <TabsList>
           <TabsTrigger value="password">Password</TabsTrigger>
@@ -126,7 +150,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
-              <CardDescription>Update your password to maintain account security</CardDescription>
+              <CardDescription>View-only</CardDescription>
             </CardHeader>
             <CardContent className="max-w-md">
               <Form {...passwordForm}>
@@ -141,6 +165,10 @@ export default function SettingsPage() {
                           <Input 
                             type="password" 
                             placeholder="Enter your current password" 
+                            readOnly={isReadOnly}
+                            onFocusCapture={() => {
+                              if (isReadOnly) notifyReadOnly();
+                            }}
                             {...field} 
                           />
                         </FormControl>
@@ -159,6 +187,10 @@ export default function SettingsPage() {
                           <Input 
                             type="password" 
                             placeholder="Enter your new password" 
+                            readOnly={isReadOnly}
+                            onFocusCapture={() => {
+                              if (isReadOnly) notifyReadOnly();
+                            }}
                             {...field} 
                           />
                         </FormControl>
@@ -177,6 +209,10 @@ export default function SettingsPage() {
                           <Input 
                             type="password" 
                             placeholder="Confirm your new password" 
+                            readOnly={isReadOnly}
+                            onFocusCapture={() => {
+                              if (isReadOnly) notifyReadOnly();
+                            }}
                             {...field} 
                           />
                         </FormControl>
@@ -185,14 +221,16 @@ export default function SettingsPage() {
                     )}
                   />
                   
-                  <Button 
-                    type="submit" 
-                    className="mt-2"
-                    disabled={passwordMutation.isPending}
-                  >
-                    {passwordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Update Password
-                  </Button>
+                  {isReadOnly ? (
+                    <Button type="button" className="mt-2" onClick={notifyReadOnly}>
+                      Read-only
+                    </Button>
+                  ) : (
+                    <Button type="submit" className="mt-2" disabled={passwordMutation.isPending}>
+                      {passwordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Update Password
+                    </Button>
+                  )}
                 </form>
               </Form>
             </CardContent>
@@ -203,7 +241,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>Configure how you receive notifications</CardDescription>
+              <CardDescription>View-only</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...notificationsForm}>
@@ -222,7 +260,10 @@ export default function SettingsPage() {
                         <FormControl>
                           <Switch
                             checked={field.value}
-                            onCheckedChange={field.onChange}
+                            onCheckedChange={(next) => {
+                              if (isReadOnly) return notifyReadOnly();
+                              field.onChange(next);
+                            }}
                           />
                         </FormControl>
                       </FormItem>
@@ -243,7 +284,10 @@ export default function SettingsPage() {
                         <FormControl>
                           <Switch
                             checked={field.value}
-                            onCheckedChange={field.onChange}
+                            onCheckedChange={(next) => {
+                              if (isReadOnly) return notifyReadOnly();
+                              field.onChange(next);
+                            }}
                           />
                         </FormControl>
                       </FormItem>
@@ -264,20 +308,26 @@ export default function SettingsPage() {
                         <FormControl>
                           <Switch
                             checked={field.value}
-                            onCheckedChange={field.onChange}
+                            onCheckedChange={(next) => {
+                              if (isReadOnly) return notifyReadOnly();
+                              field.onChange(next);
+                            }}
                           />
                         </FormControl>
                       </FormItem>
                     )}
                   />
                   
-                  <Button 
-                    type="submit"
-                    disabled={notificationsMutation.isPending}
-                  >
-                    {notificationsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Preferences
-                  </Button>
+                  {isReadOnly ? (
+                    <Button type="button" onClick={notifyReadOnly}>
+                      Read-only
+                    </Button>
+                  ) : (
+                    <Button type="submit" disabled={notificationsMutation.isPending}>
+                      {notificationsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Preferences
+                    </Button>
+                  )}
                 </form>
               </Form>
             </CardContent>

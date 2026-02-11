@@ -8,6 +8,25 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+const isReadOnlyMode = (() => {
+  const raw = (process.env.READ_ONLY_MODE ?? "1").toLowerCase();
+  return !["0", "false", "off", "no"].includes(raw);
+})();
+
+// Global read-only guard: allow login/logout + read operations; block all writes.
+app.use((req, res, next) => {
+  if (!isReadOnlyMode) return next();
+  if (!req.path.startsWith("/api")) return next();
+
+  const method = req.method.toUpperCase();
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
+
+  // Allow auth endpoints so login still works.
+  if (req.path === "/api/login" || req.path === "/api/logout") return next();
+
+  return res.status(403).json({ message: "Read-only mode" });
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -100,7 +119,9 @@ app.use((req, res, next) => {
   };
 
   // Start the cleanup scheduler
-  scheduleCleanup();
+  if (!isReadOnlyMode) {
+    scheduleCleanup();
+  }
 })();
 
 // Graceful shutdown

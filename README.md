@@ -22,6 +22,8 @@ Full-stack mentor–mentee management app (demo-ready).
 Copy `.env.example` to `.env` and set:
 - `DATABASE_URL`
 - `SESSION_SECRET`
+- `READ_ONLY_MODE=1` (default: blocks all edits; allows login + read-only API)
+- `VITE_READ_ONLY_MODE=1` (default: blocks client-side write requests)
 - `DEMO_SEED_RESET=1` (seed will wipe/recreate demo data)
 
 ## Database
