@@ -62,15 +62,13 @@ At minimum you’ll need to set env vars: `DATABASE_URL`, `SESSION_SECRET`, `NOD
 2) Create a free Postgres DB on Neon (or Supabase) and copy the connection string
 3) On Render: create a **Web Service** from this repo
 	- Build command: `npm install && npm run build`
-	- Start command: `npm run start`
+	- Start command: `npm run start:render`
 4) Set env vars on Render:
 	- `DATABASE_URL` = (Neon/Supabase connection string)
 	- `SESSION_SECRET` = long random string
 	- `NPM_CONFIG_PRODUCTION` = `false` (ensures devDependencies like Vite are installed during build)
-	- `DEMO_SEED_RESET` = `1`
-5) Run once (Render shell) to create tables + seed demo data:
-	- `npm run db:push`
-	- `npm run db:seed:reset`
+
+On free Render accounts without Shell access, the start command runs schema + seed automatically on first deploy.
 
 Notes:
 - The single website link is your Render Web Service URL.

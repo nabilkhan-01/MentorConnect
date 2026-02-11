@@ -3,7 +3,7 @@ services:
     name: mentorconnect
     env: node
     buildCommand: npm install && npm run build
-    startCommand: npm run start
+    startCommand: npm run start:render
     healthCheckPath: /
     autoDeploy: true
     envVars:
@@ -13,5 +13,3 @@ services:
         sync: false
       - key: SESSION_SECRET
         sync: false
-      - key: DEMO_SEED_RESET
-        value: "1"

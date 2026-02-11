@@ -10,6 +10,7 @@
     "dev": "tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production node dist/index.js",
+    "start:render": "cross-env NODE_ENV=production AUTO_DB_SETUP=1 AUTO_SEED=1 node --import tsx server/render-setup.ts && node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push --force --config=./drizzle.config.ts",
     "db:seed": "tsx db/seed.ts",
