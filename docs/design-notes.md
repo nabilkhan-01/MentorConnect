@@ -58,8 +58,8 @@ This document captures the reasoning and trade-offs behind key design decisions 
 - Trade-off: structure can feel formal; the design goal is to keep the schema minimal enough to encourage use, while still enabling meaningful reporting and continuity.
 
 ## Design boundaries
--The current design prioritizes clarity and safety over feature breadth.
--Certain capabilities are intentionally constrained in the demo configuration to ensure the system remains understandable and predictable for evaluation.
+- The current design prioritizes clarity and safety over feature breadth.
+- Certain capabilities are intentionally constrained in the demo configuration to ensure the system remains understandable and predictable for evaluation.
 
 ## Demo data and privacy
 All data used in the demo configuration is **system-generated** and exists solely to make the system explorable.
